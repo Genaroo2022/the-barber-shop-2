@@ -1,0 +1,128 @@
+﻿import { BadRequestException, Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { AppointmentEntity } from '../entities/appointment.entity';
+import { ClientEntity } from '../entities/client.entity';
+import { GalleryImageEntity } from '../entities/gallery-image.entity';
+import { ServiceEntity } from '../entities/service.entity';
+import { APPOINTMENT_STATUSES } from '../common/constants';
+import { PhoneService } from '../common/phone.service';
+import { CreatePublicAppointmentDto } from './create-public-appointment.dto';
+
+@Injectable()
+export class PublicService {
+  constructor(
+    @InjectRepository(ServiceEntity)
+    private readonly servicesRepo: Repository<ServiceEntity>,
+    @InjectRepository(GalleryImageEntity)
+    private readonly galleryRepo: Repository<GalleryImageEntity>,
+    @InjectRepository(ClientEntity)
+    private readonly clientsRepo: Repository<ClientEntity>,
+    @InjectRepository(AppointmentEntity)
+    private readonly appointmentsRepo: Repository<AppointmentEntity>,
+    private readonly phoneService: PhoneService,
+  ) {}
+
+  async listServices() {
+    const rows = await this.servicesRepo.find({ where: { active: true }, order: { name: 'ASC' } });
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      price: Number(row.price),
+      durationMinutes: row.durationMinutes,
+      description: row.description,
+      active: row.active,
+    }));
+  }
+
+  async listGallery() {
+    const rows = await this.galleryRepo.find({ where: { active: true }, order: { sortOrder: 'ASC', createdAt: 'DESC' } });
+    return rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      category: row.category,
+      imageUrl: row.imageUrl,
+      sortOrder: row.sortOrder,
+      active: row.active,
+    }));
+  }
+
+  async listOccupied(serviceId: string, date: string) {
+    const start = new Date(`${date}T00:00:00.000Z`);
+    const end = new Date(`${date}T23:59:59.999Z`);
+
+    const rows = await this.appointmentsRepo
+      .createQueryBuilder('a')
+      .where('a.service_id = :serviceId', { serviceId })
+      .andWhere('a.appointment_at BETWEEN :start AND :end', { start, end })
+      .andWhere('a.status IN (:...statuses)', { statuses: ['PENDING', 'CONFIRMED'] })
+      .orderBy('a.appointment_at', 'ASC')
+      .getMany();
+
+    return rows.map((row) => ({ appointmentAt: row.appointmentAt.toISOString() }));
+  }
+
+  async createAppointment(dto: CreatePublicAppointmentDto) {
+    if (!APPOINTMENT_STATUSES.includes('PENDING')) {
+      throw new BadRequestException('Estado no soportado');
+    }
+
+    const service = await this.servicesRepo.findOne({ where: { id: dto.serviceId, active: true } });
+    if (!service) {
+      throw new BadRequestException('Servicio no disponible');
+    }
+
+    const appointmentAt = new Date(dto.appointmentAt);
+    if (Number.isNaN(appointmentAt.getTime())) {
+      throw new BadRequestException('Fecha de turno invalida');
+    }
+    if (appointmentAt.getTime() <= Date.now()) {
+      throw new BadRequestException('No se puede reservar un turno en una fecha u horario pasado');
+    }
+
+    const normalizedPhone = this.phoneService.normalize(dto.clientPhone);
+    if (!normalizedPhone) {
+      throw new BadRequestException('Telefono invalido');
+    }
+
+    let client = await this.clientsRepo.findOne({ where: { phoneNormalized: normalizedPhone } });
+    if (!client) {
+      client = this.clientsRepo.create({
+        name: dto.clientName.trim(),
+        phone: dto.clientPhone.trim(),
+        phoneNormalized: normalizedPhone,
+      });
+      client = await this.clientsRepo.save(client);
+    }
+
+    const existing = await this.appointmentsRepo.findOne({
+      where: {
+        serviceId: dto.serviceId,
+        appointmentAt,
+      },
+    });
+
+    if (existing && (existing.status === 'PENDING' || existing.status === 'CONFIRMED')) {
+      throw new BadRequestException('Horario no disponible');
+    }
+
+    const appointment = this.appointmentsRepo.create({
+      clientId: client.id,
+      serviceId: service.id,
+      appointmentAt,
+      status: 'PENDING',
+      notes: dto.notes?.trim() || null,
+    });
+
+    const saved = await this.appointmentsRepo.save(appointment);
+
+    return {
+      id: saved.id,
+      serviceId: service.id,
+      serviceName: service.name,
+      appointmentAt: saved.appointmentAt.toISOString(),
+      status: saved.status,
+    };
+  }
+}
+
