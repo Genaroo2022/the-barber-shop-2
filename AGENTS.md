@@ -264,6 +264,12 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml down
 
 ## Important Implementation Notes for Future Agents
 
+0. Engineering standards are mandatory
+- For this project it is INDISPENSABLE to apply good engineering practices and SOLID principles in every change.
+- Prefer small, cohesive, testable components/services with clear responsibilities.
+- Avoid duplicated logic; extract reusable utilities/components when behavior repeats.
+- Any refactor or feature must preserve existing visual style unless explicitly requested.
+
 1. Preserve existing UI style
 - Do not redesign visual style unless explicitly requested.
 - Functional changes should not alter current look and feel.
@@ -322,3 +328,6 @@ Before handoff:
 - Public navbar no longer exposes admin entrypoint.
 - Booking flow blocks selecting/confirming past times.
 - Admin destructive actions use modal confirmation and show clear error feedback.
+- Mobile navbar items have full-row tap targets and corrected section anchoring for `Servicios` and `Contacto`.
+- Admin pages (`Dashboard`, `Turnos`, `Clientes`, `Ingresos`) avoid horizontal scrolling on mobile.
+- Month selectors in admin were standardized with a reusable component to avoid month/year truncation.

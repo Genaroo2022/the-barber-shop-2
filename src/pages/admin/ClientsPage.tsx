@@ -79,60 +79,112 @@ export default function ClientsPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full overflow-x-hidden">
       <div className="flex flex-wrap items-center gap-3">
         <Input
           placeholder="Buscar cliente..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-64 bg-background"
+          className="w-full sm:w-64 bg-background"
         />
         <Button variant="outline" size="sm" onClick={() => setMergeOpen(true)}>
           <Merge size={14} className="mr-1" /> Fusionar
         </Button>
       </div>
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+      <div className="bg-card border border-border rounded-xl p-3 md:p-0">
+        <div className="space-y-3 md:hidden">
+          {filtered?.map((c) => (
+            <div key={c.id} className="rounded-lg border border-border p-3 space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-foreground font-medium truncate">{c.clientName}</p>
+                  <p className="text-xs text-muted-foreground break-all">{c.clientPhone}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditClient(c);
+                      setEditName(c.clientName);
+                      setEditPhone(c.clientPhone);
+                    }}
+                    className="text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    <Pencil size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setClientToDelete(c)}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+              <div className="text-sm text-muted-foreground space-y-1">
+                <p><span className="text-foreground">Citas:</span> {c.totalAppointments}</p>
+                <p>
+                  <span className="text-foreground">Última visita:</span>{" "}
+                  {c.lastVisit ? format(new Date(c.lastVisit), "dd/MM/yyyy HH:mm") : "-"}
+                </p>
+              </div>
+            </div>
+          ))}
+          {(!filtered || filtered.length === 0) && (
+            <p className="p-6 text-center text-muted-foreground">Sin clientes</p>
+          )}
+        </div>
+
+        <div className="hidden md:block overflow-x-hidden">
+          <table className="w-full text-sm table-fixed">
             <thead>
               <tr className="border-b border-border text-muted-foreground text-left">
                 <th className="p-3">Nombre</th>
-                <th className="p-3">Telefono</th>
+                <th className="p-3">Teléfono</th>
                 <th className="p-3">Citas</th>
-                <th className="p-3">Ultima visita</th>
+                <th className="p-3">Última visita</th>
                 <th className="p-3"></th>
               </tr>
             </thead>
             <tbody>
               {filtered?.map((c) => (
                 <tr key={c.id} className="border-b border-border hover:bg-secondary/30 transition-colors">
-                  <td className="p-3 text-foreground">{c.clientName}</td>
-                  <td className="p-3 text-muted-foreground">{c.clientPhone}</td>
+                  <td className="p-3 text-foreground truncate">{c.clientName}</td>
+                  <td className="p-3 text-muted-foreground truncate">{c.clientPhone}</td>
                   <td className="p-3 text-muted-foreground">{c.totalAppointments}</td>
-                  <td className="p-3 text-muted-foreground">
+                  <td className="p-3 text-muted-foreground whitespace-nowrap">
                     {c.lastVisit ? format(new Date(c.lastVisit), "dd/MM/yyyy HH:mm") : "-"}
                   </td>
-                  <td className="p-3 flex gap-2">
-                    <button
-                      onClick={() => {
-                        setEditClient(c);
-                        setEditName(c.clientName);
-                        setEditPhone(c.clientPhone);
-                      }}
-                      className="text-muted-foreground hover:text-primary transition-colors"
-                    >
-                      <Pencil size={16} />
-                    </button>
-                    <button
-                      onClick={() => setClientToDelete(c)}
-                      className="text-muted-foreground hover:text-destructive transition-colors"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                  <td className="p-3">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditClient(c);
+                          setEditName(c.clientName);
+                          setEditPhone(c.clientPhone);
+                        }}
+                        className="text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setClientToDelete(c)}
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
+              {(!filtered || filtered.length === 0) && (
+                <tr>
+                  <td colSpan={5} className="p-8 text-center text-muted-foreground">Sin clientes</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -237,6 +289,7 @@ export default function ClientsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
       <ConfirmDialog
         open={!!clientToDelete}
         onOpenChange={(open) => {
@@ -257,4 +310,3 @@ export default function ClientsPage() {
     </div>
   );
 }
-

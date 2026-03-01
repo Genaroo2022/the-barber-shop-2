@@ -9,6 +9,7 @@ import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { MonthInput } from "@/components/common/MonthInput";
 
 export default function IncomePage() {
   const qc = useQueryClient();
@@ -77,9 +78,9 @@ export default function IncomePage() {
     (form.notes?.length ?? 0) <= 255;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full overflow-x-hidden">
       <div className="flex flex-wrap items-center gap-3">
-        <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-40 bg-background" />
+        <MonthInput value={month} onChange={setMonth} />
         <Button onClick={openNew} size="sm">
           <Plus size={14} className="mr-1" /> Ingreso manual
         </Button>
@@ -92,14 +93,46 @@ export default function IncomePage() {
         <StatCard label="Total" value={income?.totalIncome ?? 0} highlight />
       </div>
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-xl p-3 md:p-0">
         <div className="p-4 border-b border-border">
           <h3 className="text-lg" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
             Ingresos manuales
           </h3>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+
+        <div className="space-y-3 p-3 md:hidden">
+          {income?.manualEntries?.map((entry) => (
+            <div key={entry.id} className="rounded-lg border border-border p-3 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-foreground font-medium">{entry.occurredOn}</p>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => openEdit(entry)} className="text-muted-foreground hover:text-primary transition-colors">
+                    <Pencil size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEntryToDelete(entry)}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+              <div className="text-sm text-muted-foreground space-y-1">
+                <p><span className="text-foreground">Monto:</span> ${entry.amount.toLocaleString()}</p>
+                <p><span className="text-foreground">Propina:</span> ${entry.tipAmount.toLocaleString()}</p>
+                <p><span className="text-foreground">Total:</span> <span className="text-primary font-bold">${entry.total.toLocaleString()}</span></p>
+                <p className="break-words"><span className="text-foreground">Notas:</span> {entry.notes || "-"}</p>
+              </div>
+            </div>
+          ))}
+          {(!income?.manualEntries || income.manualEntries.length === 0) && (
+            <p className="p-6 text-center text-muted-foreground">Sin ingresos manuales</p>
+          )}
+        </div>
+
+        <div className="hidden md:block overflow-x-hidden">
+          <table className="w-full text-sm table-fixed">
             <thead>
               <tr className="border-b border-border text-muted-foreground text-left">
                 <th className="p-3">Fecha</th>
@@ -113,21 +146,24 @@ export default function IncomePage() {
             <tbody>
               {income?.manualEntries?.map((entry) => (
                 <tr key={entry.id} className="border-b border-border hover:bg-secondary/30 transition-colors">
-                  <td className="p-3 text-muted-foreground">{entry.occurredOn}</td>
-                  <td className="p-3 text-foreground">${entry.amount.toLocaleString()}</td>
-                  <td className="p-3 text-muted-foreground">${entry.tipAmount.toLocaleString()}</td>
-                  <td className="p-3 text-primary font-bold">${entry.total.toLocaleString()}</td>
-                  <td className="p-3 text-muted-foreground text-xs">{entry.notes || "-"}</td>
-                  <td className="p-3 flex gap-2">
-                    <button onClick={() => openEdit(entry)} className="text-muted-foreground hover:text-primary transition-colors">
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={() => setEntryToDelete(entry)}
-                      className="text-muted-foreground hover:text-destructive transition-colors"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                  <td className="p-3 text-muted-foreground whitespace-nowrap">{entry.occurredOn}</td>
+                  <td className="p-3 text-foreground whitespace-nowrap">${entry.amount.toLocaleString()}</td>
+                  <td className="p-3 text-muted-foreground whitespace-nowrap">${entry.tipAmount.toLocaleString()}</td>
+                  <td className="p-3 text-primary font-bold whitespace-nowrap">${entry.total.toLocaleString()}</td>
+                  <td className="p-3 text-muted-foreground text-xs truncate">{entry.notes || "-"}</td>
+                  <td className="p-3">
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => openEdit(entry)} className="text-muted-foreground hover:text-primary transition-colors">
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEntryToDelete(entry)}
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -195,6 +231,7 @@ export default function IncomePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
       <ConfirmDialog
         open={!!entryToDelete}
         onOpenChange={(open) => {
@@ -222,4 +259,3 @@ function StatCard({ label, value, highlight }: { label: string; value: number; h
     </div>
   );
 }
-

@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api";
 import type { AppointmentResponse, StalePendingAppointmentResponse, AppointmentStatus } from "@/lib/types";
 import { format } from "date-fns";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2, AlertTriangle, ChevronDown } from "lucide-react";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { MonthInput } from "@/components/common/MonthInput";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -80,11 +80,13 @@ export default function AppointmentsPage() {
     },
   });
 
+  const allStatuses: AppointmentStatus[] = ["PENDING", "CONFIRMED", "COMPLETED", "CANCELLED"];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full overflow-x-hidden">
       <div className="flex flex-wrap items-center gap-3">
-        <Input type="month" value={month} onChange={e => setMonth(e.target.value)} className="w-40 bg-background" />
-        <div className="flex items-center gap-2">
+        <MonthInput value={month} onChange={setMonth} />
+        <div className="flex items-center gap-2 flex-wrap">
           <label htmlFor="stale-threshold" className="text-sm text-muted-foreground whitespace-nowrap">
             Marcar como estancado si supera
           </label>
@@ -110,8 +112,8 @@ export default function AppointmentsPage() {
         <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-4">
           <h4 className="text-sm font-medium text-yellow-400 mb-3">Pendientes estancados ({stale.length})</h4>
           <div className="space-y-2">
-            {stale.map(s => (
-              <div key={s.id} className="flex items-center justify-between text-sm p-2 bg-card rounded-lg">
+            {stale.map((s) => (
+              <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 text-sm p-2 bg-card rounded-lg">
                 <div>
                   <span className="text-foreground">{s.clientName}</span>
                   <span className="text-muted-foreground ml-2">• {s.serviceName}</span>
@@ -123,9 +125,57 @@ export default function AppointmentsPage() {
         </div>
       )}
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+      <div className="bg-card border border-border rounded-xl p-3 md:p-0">
+        <div className="space-y-3 md:hidden">
+          {appointments?.map((a) => (
+            <div key={a.id} className="rounded-lg border border-border p-3 space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-foreground font-medium truncate">{a.clientName}</p>
+                  <p className="text-xs text-muted-foreground break-all">{a.clientPhone}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAppointmentToDelete(a)}
+                  className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+
+              <div className="text-sm text-muted-foreground space-y-1">
+                <p><span className="text-foreground">Servicio:</span> {a.serviceName}</p>
+                <p><span className="text-foreground">Fecha:</span> {format(new Date(a.appointmentAt), "dd/MM HH:mm")}</p>
+                <p><span className="text-foreground">Precio:</span> ${a.servicePrice.toLocaleString()}</p>
+              </div>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button type="button" className={`px-2 py-1 rounded text-xs font-medium inline-flex items-center gap-1 ${STATUS_COLORS[a.status]}`}>
+                    {a.status} <ChevronDown size={12} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  {allStatuses.map((s) => (
+                    <DropdownMenuItem
+                      key={s}
+                      onClick={() => statusMutation.mutate({ id: a.id, status: s })}
+                      disabled={s === a.status}
+                    >
+                      {s}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          ))}
+          {(!appointments || appointments.length === 0) && (
+            <p className="p-6 text-center text-muted-foreground">Sin turnos</p>
+          )}
+        </div>
+
+        <div className="hidden md:block overflow-x-hidden">
+          <table className="w-full text-sm table-fixed">
             <thead>
               <tr className="border-b border-border text-muted-foreground text-left">
                 <th className="p-3">Cliente</th>
@@ -137,24 +187,24 @@ export default function AppointmentsPage() {
               </tr>
             </thead>
             <tbody>
-              {appointments?.map(a => (
+              {appointments?.map((a) => (
                 <tr key={a.id} className="border-b border-border hover:bg-secondary/30 transition-colors">
                   <td className="p-3">
-                    <p className="text-foreground">{a.clientName}</p>
-                    <p className="text-xs text-muted-foreground">{a.clientPhone}</p>
+                    <p className="text-foreground truncate">{a.clientName}</p>
+                    <p className="text-xs text-muted-foreground truncate">{a.clientPhone}</p>
                   </td>
-                  <td className="p-3 text-muted-foreground">{a.serviceName}</td>
-                  <td className="p-3 text-muted-foreground">{format(new Date(a.appointmentAt), "dd/MM HH:mm")}</td>
-                  <td className="p-3 text-foreground">${a.servicePrice.toLocaleString()}</td>
+                  <td className="p-3 text-muted-foreground truncate">{a.serviceName}</td>
+                  <td className="p-3 text-muted-foreground whitespace-nowrap">{format(new Date(a.appointmentAt), "dd/MM HH:mm")}</td>
+                  <td className="p-3 text-foreground whitespace-nowrap">${a.servicePrice.toLocaleString()}</td>
                   <td className="p-3">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button className={`px-2 py-1 rounded text-xs font-medium inline-flex items-center gap-1 ${STATUS_COLORS[a.status]}`}>
+                        <button type="button" className={`px-2 py-1 rounded text-xs font-medium inline-flex items-center gap-1 ${STATUS_COLORS[a.status]}`}>
                           {a.status} <ChevronDown size={12} />
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent>
-                        {(["PENDING", "CONFIRMED", "COMPLETED", "CANCELLED"] as AppointmentStatus[]).map(s => (
+                        {allStatuses.map((s) => (
                           <DropdownMenuItem
                             key={s}
                             onClick={() => statusMutation.mutate({ id: a.id, status: s })}
@@ -168,6 +218,7 @@ export default function AppointmentsPage() {
                   </td>
                   <td className="p-3">
                     <button
+                      type="button"
                       onClick={() => setAppointmentToDelete(a)}
                       className="text-muted-foreground hover:text-destructive transition-colors"
                     >
@@ -177,12 +228,15 @@ export default function AppointmentsPage() {
                 </tr>
               ))}
               {(!appointments || appointments.length === 0) && (
-                <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">Sin turnos</td></tr>
+                <tr>
+                  <td colSpan={6} className="p-8 text-center text-muted-foreground">Sin turnos</td>
+                </tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
+
       <ConfirmDialog
         open={!!appointmentToDelete}
         onOpenChange={(open) => {

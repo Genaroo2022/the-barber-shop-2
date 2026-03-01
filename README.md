@@ -7,7 +7,7 @@ Proyecto de barbería con frontend React (estilos actuales conservados) y backen
 - Frontend: React + Vite + TypeScript + Tailwind + shadcn/ui
 - Backend: NestJS (estable) + TypeORM + PostgreSQL + JWT
 
-## Funcionalidades replicadas
+## Funcionalidades
 
 - Reserva pública de turnos
 - Horarios ocupados reactivos (`/api/public/appointments/occupied`)
@@ -127,8 +127,12 @@ Claves mínimas recomendadas:
 - Navbar público sin enlace visible a Admin.
 - Botón de marca en navbar con scroll al inicio.
 - Ajuste visual del hero para evitar corte del título por navbar fijo.
+- Menú hamburguesa móvil con área táctil amplia por item (fila completa).
+- Redireccionamiento de navbar móvil corregido para secciones `Servicios` y `Contacto` con anclaje consistente en distintas pantallas.
 - En Admin > Turnos, filtro de pendientes estancados cambiado a selector intuitivo por minutos.
 - Manejo de errores de borrado:
   - Si cliente/servicio tiene turnos asociados, backend devuelve mensaje claro (400).
   - Frontend muestra toast descriptivo y modal de confirmación.
+- En Admin (`Dashboard`, `Turnos`, `Clientes`, `Ingresos`) se eliminó el scroll horizontal en móvil.
+- Selectores de mes en Admin estandarizados para mostrar mes/año completo sin recortes.
 

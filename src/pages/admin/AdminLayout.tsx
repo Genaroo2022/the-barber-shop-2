@@ -94,7 +94,7 @@ export default function AdminLayout() {
             {LINKS.find((l) => isActive(l.to, l.end))?.label || "Admin"}
           </h2>
         </header>
-        <main className="flex-1 p-4 lg:p-6 overflow-auto">
+        <main className="flex-1 p-4 lg:p-6 overflow-y-auto overflow-x-hidden">
           <Outlet />
         </main>
       </div>

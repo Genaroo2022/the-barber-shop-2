@@ -14,6 +14,7 @@ export default function ServicesSection() {
     <section id="servicios" className="py-24 px-4">
       <div className="container mx-auto">
         <motion.div
+          data-nav-anchor
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}

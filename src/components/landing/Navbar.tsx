@@ -1,25 +1,37 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const NAV_ITEMS = [
-  { label: "Inicio", href: "#hero" },
-  { label: "Servicios", href: "#servicios" },
-  { label: "Galería", href: "#galeria" },
-  { label: "Reservar", href: "#reservar" },
-  { label: "Contacto", href: "#contacto" },
+  { label: "Inicio", id: "hero" },
+  { label: "Servicios", id: "servicios" },
+  { label: "Galería", id: "galeria" },
+  { label: "Reservar", id: "reservar" },
+  { label: "Contacto", id: "contacto" },
 ];
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
 
-  const scrollTo = (href: string) => {
+  const getNavbarOffset = () => {
+    const navbarBar = document.querySelector("[data-navbar-bar]");
+    return (navbarBar?.getBoundingClientRect().height ?? 64) + 2;
+  };
+
+  const scrollTo = (id: string) => {
     setOpen(false);
-    const el = document.querySelector(href);
-    if (!el) return;
-    const navbarOffset = 72;
-    const y = el.getBoundingClientRect().top + window.scrollY - navbarOffset;
-    window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+    const section = document.getElementById(id);
+    if (!section) return;
+    const el =
+      id === "servicios" || id === "contacto"
+        ? section.querySelector<HTMLElement>("[data-nav-anchor]") ?? section
+        : section;
+
+    window.requestAnimationFrame(() => {
+      const navbarOffset = getNavbarOffset();
+      const y = el.getBoundingClientRect().top + window.scrollY - navbarOffset;
+      window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+    });
   };
 
   const scrollToTop = () => {
@@ -29,7 +41,7 @@ export default function Navbar() {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
-      <div className="container mx-auto flex items-center justify-between h-16 px-4">
+      <div data-navbar-bar className="container mx-auto flex items-center justify-between h-16 px-4">
         <button
           type="button"
           onClick={scrollToTop}
@@ -40,12 +52,12 @@ export default function Navbar() {
           <span className="text-foreground">SHOP</span>
         </button>
 
-        {/* Desktop */}
         <ul className="hidden md:flex items-center gap-8">
           {NAV_ITEMS.map((item) => (
-            <li key={item.href}>
+            <li key={item.id}>
               <button
-                onClick={() => scrollTo(item.href)}
+                type="button"
+                onClick={() => scrollTo(item.id)}
                 className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors uppercase tracking-wider"
               >
                 {item.label}
@@ -54,13 +66,11 @@ export default function Navbar() {
           ))}
         </ul>
 
-        {/* Mobile toggle */}
-        <button className="md:hidden text-foreground" onClick={() => setOpen(!open)}>
+        <button type="button" className="md:hidden text-foreground" onClick={() => setOpen((prev) => !prev)}>
           {open ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
-      {/* Mobile menu */}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -69,15 +79,19 @@ export default function Navbar() {
             exit={{ height: 0, opacity: 0 }}
             className="md:hidden bg-background border-b border-border overflow-hidden"
           >
-            <ul className="flex flex-col p-4 gap-4">
+            <ul className="flex flex-col p-2">
               {NAV_ITEMS.map((item) => (
-                <li key={item.href}>
-                  <button
-                    onClick={() => scrollTo(item.href)}
-                    className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors uppercase tracking-wider"
+                <li key={item.id}>
+                  <a
+                    href={`#${item.id}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      scrollTo(item.id);
+                    }}
+                    className="block w-full rounded-md px-3 py-3 text-sm font-medium text-muted-foreground hover:text-primary hover:bg-secondary transition-colors uppercase tracking-wider"
                   >
                     {item.label}
-                  </button>
+                  </a>
                 </li>
               ))}
             </ul>
