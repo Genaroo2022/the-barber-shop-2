@@ -1,4 +1,4 @@
-﻿# The Barber Shop 2
+# The Barber Shop 2
 
 Proyecto de barbería con frontend React (estilos actuales conservados) y backend NestJS.
 
@@ -13,7 +13,10 @@ Proyecto de barbería con frontend React (estilos actuales conservados) y backen
 - Horarios ocupados reactivos (`/api/public/appointments/occupied`)
 - Catálogo de servicios público y admin
 - Galería pública y admin
+- Subida múltiple y borrado múltiple de imágenes en `Admin > Galería`
+- Resolución de colisiones de número de foto en galería con confirmación de intercambio
 - Login admin con Google (Firebase ID token) y lista blanca de administradores autorizados
+- Cierre de sesión automático cuando un administrador es desactivado en `Admin > Accesos`
 - Gestión admin de turnos, clientes, ingresos manuales y métricas
 - Gestión de accesos admin (alta/baja/activación de administradores autorizados)
 - Merge de clientes por teléfono
@@ -145,5 +148,11 @@ Claves mínimas recomendadas:
 - Login admin UI simplificado a Google-only (sin inputs de usuario/contraseña).
 - Nuevo módulo `Admin > Accesos` para gestionar administradores autorizados.
 - Autorización Firebase endurecida: solo emails verificados y presentes en `admin_users` activos.
+- Si un admin es desactivado en `Accesos`, su sesión activa queda invalidada y se redirige al login.
 - Subida de galería con firma Cloudinary + fallback seguro por backend si falla la subida directa.
+- `Admin > Galería` ahora permite subir múltiples imágenes de una sola vez.
+- `Admin > Galería` ahora permite eliminar múltiples imágenes seleccionadas.
+- En Galería, al repetir `Número de foto`, se muestra confirmación y se intercambian posiciones para evitar duplicados lógicos.
+- Mejor legibilidad tipográfica en títulos de modales del panel admin sin cambiar la estética general.
+- En `+ Ingreso manual`, los campos `Monto del servicio` y `Propina` ahora tienen etiquetas explícitas.
 

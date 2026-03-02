@@ -6,10 +6,7 @@ class ApiClient {
     return getToken();
   }
 
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const token = this.getToken();
     const headers: Record<string, string> = {
       ...((options.headers as Record<string, string>) || {}),
@@ -35,8 +32,11 @@ class ApiClient {
       const body = await res.json().catch(() => ({ error: "Error desconocido" }));
       const message =
         res.status === 429
-          ? "Demasiadas solicitudes. Intentá de nuevo en unos minutos."
+          ? "Demasiadas solicitudes. Intenta de nuevo en unos minutos."
           : body.error || `Error ${res.status}`;
+      if (res.status === 401 && typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("auth:unauthorized"));
+      }
       throw new ApiError(message, res.status, body);
     }
 
@@ -90,7 +90,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
-    public body?: unknown
+    public body?: unknown,
   ) {
     super(message);
     this.name = "ApiError";

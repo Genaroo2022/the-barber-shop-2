@@ -1,4 +1,4 @@
-﻿# AGENTS.md
+# AGENTS.md
 
 ## Project Overview
 
@@ -110,6 +110,7 @@ Appointment statuses:
 - Login in admin UI with Firebase ID token (Google popup only)
 - Restrict Google login to active admins authorized in `admin_users`
 - Manage authorized admin users from `Admin > Accesos` (create/activate/deactivate/delete)
+- Force logout active sessions when an admin is set to inactive from `Admin > Accesos`
 - Manage appointments (list/update status/update/delete)
 - Detect stale pending appointments
 - Manage clients (list/update/delete/merge)
@@ -118,6 +119,9 @@ Appointment statuses:
 - Manage manual income entries
 - Manage services CRUD
 - Manage gallery CRUD + Cloudinary upload signature endpoint
+- Upload multiple gallery images in a single action
+- Delete multiple gallery images in a single action
+- Resolve gallery sort/order collisions via explicit swap confirmation
 - Confirm destructive actions using modal dialogs (appointments/clients/services/gallery/income)
 
 ### Webhook use case
@@ -316,6 +320,19 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml down
 10. Stale pending filter UX
 - In `AppointmentsPage`, prefer discrete preset options (30/60/90/120/180/240 min) over raw numeric input for `olderThanMinutes`.
 
+11. Admin session invalidation
+- Protected admin requests must revalidate that `admin_users.active = true`.
+- Frontend must react to `401` in admin API calls by clearing session and redirecting to login.
+
+12. Gallery ordering behavior
+- In `Admin > Galería`, `Número de foto` collisions must not be silently ignored.
+- If user confirms collision, positions are swapped between both images.
+- Keep explicit confirmation modal wording before applying the swap.
+
+13. Manual income form clarity
+- Keep explicit labels for `Monto del servicio` and `Propina` in the manual income dialog.
+- Avoid placeholder-only meaning for money fields.
+
 ## Testing / Validation Checklist
 
 Before handoff:
@@ -341,3 +358,8 @@ Before handoff:
 - Admin login page uses Google-only access (no email/password inputs in UI).
 - Firebase auth is bound to an allowlist of active admins (`admin_users`).
 - Admin includes `Accesos` page for authorized account management.
+- Admin session is invalidated automatically when an account is deactivated.
+- Gallery supports multi-image upload and multi-image deletion.
+- Gallery sort-order collisions are handled with a swap-confirmation modal.
+- Admin modal titles use improved legibility while preserving visual style.
+- Manual income dialog uses explicit labels for amount vs tip inputs.

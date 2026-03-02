@@ -1,6 +1,6 @@
-﻿import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
 import { isAuthenticated, logout } from "@/lib/auth";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { ADMIN_ROUTE, LOGIN_ROUTE } from "@/lib/routes";
 import { signOutFirebaseIfConfigured } from "@/lib/firebase";
+import { api } from "@/lib/api";
 
 const LINKS = [
   { to: ADMIN_ROUTE, icon: LayoutDashboard, label: "Dashboard", end: true },
@@ -30,8 +31,38 @@ const LINKS = [
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
+  const authenticated = isAuthenticated();
 
-  if (!isAuthenticated()) return <Navigate to={LOGIN_ROUTE} replace />;
+  useEffect(() => {
+    if (!authenticated) return;
+
+    const handleUnauthorized = async () => {
+      logout();
+      await signOutFirebaseIfConfigured();
+      window.location.href = LOGIN_ROUTE;
+    };
+
+    window.addEventListener("auth:unauthorized", handleUnauthorized as EventListener);
+    return () => {
+      window.removeEventListener("auth:unauthorized", handleUnauthorized as EventListener);
+    };
+  }, [authenticated]);
+
+  useEffect(() => {
+    if (!authenticated) return;
+
+    const intervalId = window.setInterval(() => {
+      void api.get("/api/admin/metrics/overview").catch(() => {
+        // 401 is handled globally by api.ts and will trigger logout event.
+      });
+    }, 45_000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [authenticated]);
+
+  if (!authenticated) return <Navigate to={LOGIN_ROUTE} replace />;
 
   const isActive = (to: string, end?: boolean) =>
     end ? location.pathname === to : location.pathname.startsWith(to);

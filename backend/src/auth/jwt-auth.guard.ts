@@ -1,11 +1,18 @@
-﻿import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { AdminUserEntity } from '../entities/admin-user.entity';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    @InjectRepository(AdminUserEntity)
+    private readonly adminRepo: Repository<AdminUserEntity>,
+  ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const auth = request.headers.authorization as string | undefined;
     if (!auth || !auth.startsWith('Bearer ')) {
@@ -14,11 +21,29 @@ export class JwtAuthGuard implements CanActivate {
 
     const token = auth.slice(7);
     try {
-      request.user = this.jwtService.verify(token, { secret: process.env.JWT_SECRET ?? 'dev-secret-change-me' });
+      const payload = this.jwtService.verify<{ sub?: string }>(token, {
+        secret: process.env.JWT_SECRET ?? 'dev-secret-change-me',
+      });
+      const adminId = payload?.sub;
+      if (!adminId) {
+        throw new UnauthorizedException('Token invalido');
+      }
+
+      const admin = await this.adminRepo.findOne({
+        where: { id: adminId, active: true },
+        select: { id: true },
+      });
+      if (!admin) {
+        throw new UnauthorizedException('Sesion expirada o usuario inactivo');
+      }
+
+      request.user = payload;
       return true;
-    } catch {
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       throw new UnauthorizedException('Token invalido');
     }
   }
 }
-

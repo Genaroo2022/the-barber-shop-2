@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api";
 import type { IncomeMetricsResponse, CreateManualIncomeRequest, ManualIncomeEntryResponse } from "@/lib/types";
@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { format } from "date-fns";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { MonthInput } from "@/components/common/MonthInput";
+import { Label } from "@/components/ui/label";
 
 export default function IncomePage() {
   const qc = useQueryClient();
@@ -185,24 +186,32 @@ export default function IncomePage() {
             <DialogTitle>{editing ? "Editar ingreso" : "Nuevo ingreso"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <Input
-              type="number"
-              placeholder="Monto"
-              value={form.amount}
-              onChange={(e) => setForm({ ...form, amount: Number(e.target.value || 0) })}
-              min={0}
-              step={1}
-              className="bg-background"
-            />
-            <Input
-              type="number"
-              placeholder="Propina"
-              value={form.tipAmount}
-              onChange={(e) => setForm({ ...form, tipAmount: Number(e.target.value || 0) })}
-              min={0}
-              step={1}
-              className="bg-background"
-            />
+            <div className="space-y-1.5">
+              <Label htmlFor="manual-income-amount">Monto del servicio ($)</Label>
+              <Input
+                id="manual-income-amount"
+                type="number"
+                placeholder="Ej: 15000"
+                value={form.amount}
+                onChange={(e) => setForm({ ...form, amount: Number(e.target.value || 0) })}
+                min={0}
+                step={1}
+                className="bg-background"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="manual-income-tip">Propina ($)</Label>
+              <Input
+                id="manual-income-tip"
+                type="number"
+                placeholder="Ej: 2000"
+                value={form.tipAmount}
+                onChange={(e) => setForm({ ...form, tipAmount: Number(e.target.value || 0) })}
+                min={0}
+                step={1}
+                className="bg-background"
+              />
+            </div>
             <Input
               type="date"
               value={form.occurredOn}
