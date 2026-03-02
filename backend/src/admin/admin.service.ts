@@ -1,12 +1,14 @@
 ﻿import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
-import { createHash } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
+import * as bcrypt from 'bcryptjs';
 import { AppointmentEntity } from '../entities/appointment.entity';
 import { ClientEntity } from '../entities/client.entity';
 import { ServiceEntity } from '../entities/service.entity';
 import { ManualIncomeEntryEntity } from '../entities/manual-income-entry.entity';
 import { GalleryImageEntity } from '../entities/gallery-image.entity';
+import { AdminUserEntity } from '../entities/admin-user.entity';
 import { AppointmentStatus } from '../common/constants';
 import { PhoneService } from '../common/phone.service';
 import {
@@ -14,6 +16,8 @@ import {
   AdminClientUpsertDto,
   AdminGalleryImageUpsertDto,
   AdminServiceUpsertDto,
+  AdminUserCreateDto,
+  AdminUserUpdateDto,
   CreateManualIncomeDto,
 } from './admin.dto';
 
@@ -30,6 +34,8 @@ export class AdminService {
     private readonly manualIncomeRepo: Repository<ManualIncomeEntryEntity>,
     @InjectRepository(GalleryImageEntity)
     private readonly galleryRepo: Repository<GalleryImageEntity>,
+    @InjectRepository(AdminUserEntity)
+    private readonly adminUsersRepo: Repository<AdminUserEntity>,
     private readonly phoneService: PhoneService,
   ) {}
 
@@ -418,25 +424,69 @@ export class AdminService {
   }
 
   getGalleryUploadSignature() {
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME ?? '';
-    const apiKey = process.env.CLOUDINARY_API_KEY ?? '';
-    const apiSecret = process.env.CLOUDINARY_API_SECRET ?? '';
-    const folder = process.env.CLOUDINARY_UPLOAD_FOLDER ?? 'stylebook/gallery';
-
-    if (!cloudName || !apiKey || !apiSecret) {
-      throw new BadRequestException('Cloudinary no configurado');
-    }
-
+    const { cloudName, apiKey, apiSecret, folder } = this.resolveCloudinaryConfig();
     const timestamp = Math.floor(Date.now() / 1000);
-    const base = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
-    const signature = createHash('sha1').update(base).digest('hex');
+    const publicId = this.buildCloudinaryPublicId(timestamp);
+
+    const signature = this.signCloudinaryParams(
+      {
+        folder,
+        public_id: publicId,
+        timestamp: String(timestamp),
+      },
+      apiSecret,
+    );
 
     return {
       cloudName,
       apiKey,
-      timestamp,
-      signature,
       folder,
+      timestamp,
+      publicId,
+      signature,
+    };
+  }
+
+  async uploadGalleryImage(file?: { buffer: Buffer; mimetype: string; size: number; originalname: string }) {
+    if (!file) {
+      throw new BadRequestException('Archivo requerido');
+    }
+    if (!file.mimetype.startsWith('image/')) {
+      throw new BadRequestException('El archivo debe ser una imagen');
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      throw new BadRequestException('La imagen supera el limite de 8MB');
+    }
+
+    const { cloudName, apiKey, folder } = this.resolveCloudinaryConfig();
+    const { timestamp, publicId, signature } = this.getGalleryUploadSignature();
+
+    const formData = new FormData();
+    const bytes = Uint8Array.from(file.buffer);
+    formData.append('file', new Blob([bytes], { type: file.mimetype }), file.originalname || 'gallery-image');
+    formData.append('api_key', apiKey);
+    formData.append('timestamp', String(timestamp));
+    formData.append('signature', signature);
+    formData.append('folder', folder);
+    formData.append('public_id', publicId);
+
+    const uploadResponse = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!uploadResponse.ok) {
+      throw new BadRequestException('No se pudo subir la imagen a Cloudinary');
+    }
+
+    const data = (await uploadResponse.json()) as { secure_url?: string };
+    if (!data.secure_url) {
+      throw new BadRequestException('Cloudinary no devolvio URL de imagen');
+    }
+
+    return {
+      imageUrl: data.secure_url,
+      timestamp,
     };
   }
 
@@ -468,6 +518,81 @@ export class AdminService {
 
   async deleteGalleryImage(id: string) {
     await this.galleryRepo.delete({ id });
+  }
+
+  async listAdminUsers() {
+    const admins = await this.adminUsersRepo.find({ order: { createdAt: 'ASC' } });
+    return admins.map((admin) => this.mapAdminUser(admin));
+  }
+
+  async createAdminUser(dto: AdminUserCreateDto) {
+    const email = dto.email.trim().toLowerCase();
+    const existing = await this.adminUsersRepo
+      .createQueryBuilder('a')
+      .where('lower(a.email) = :email', { email })
+      .getOne();
+
+    if (existing) {
+      throw new BadRequestException('Ya existe un administrador con ese email');
+    }
+
+    const passwordToHash = dto.password?.trim() || randomBytes(24).toString('hex');
+    const passwordHash = await bcrypt.hash(passwordToHash, 10);
+
+    const created = this.adminUsersRepo.create({
+      email,
+      passwordHash,
+      active: dto.active,
+      role: 'ADMIN',
+      firebaseUid: null,
+    });
+
+    const saved = await this.adminUsersRepo.save(created);
+    return this.mapAdminUser(saved);
+  }
+
+  async updateAdminUser(id: string, dto: AdminUserUpdateDto, currentAdminId: string | null) {
+    const admin = await this.adminUsersRepo.findOne({ where: { id } });
+    if (!admin) throw new NotFoundException('Administrador no encontrado');
+
+    if (dto.email) {
+      const email = dto.email.trim().toLowerCase();
+      const existing = await this.adminUsersRepo
+        .createQueryBuilder('a')
+        .where('lower(a.email) = :email', { email })
+        .andWhere('a.id <> :id', { id })
+        .getOne();
+
+      if (existing) {
+        throw new BadRequestException('Ya existe un administrador con ese email');
+      }
+      admin.email = email;
+    }
+
+    if (dto.password) {
+      admin.passwordHash = await bcrypt.hash(dto.password.trim(), 10);
+    }
+
+    if (typeof dto.active === 'boolean') {
+      if (!dto.active && currentAdminId && currentAdminId === admin.id) {
+        throw new BadRequestException('No puedes desactivar tu propio usuario');
+      }
+      admin.active = dto.active;
+    }
+
+    const saved = await this.adminUsersRepo.save(admin);
+    return this.mapAdminUser(saved);
+  }
+
+  async deleteAdminUser(id: string, currentAdminId: string | null) {
+    const admin = await this.adminUsersRepo.findOne({ where: { id } });
+    if (!admin) throw new NotFoundException('Administrador no encontrado');
+
+    if (currentAdminId && currentAdminId === admin.id) {
+      throw new BadRequestException('No puedes eliminar tu propio usuario');
+    }
+
+    await this.adminUsersRepo.delete({ id });
   }
 
   private mapAppointment(appointment: AppointmentEntity) {
@@ -526,5 +651,46 @@ export class AdminService {
     const end = new Date(Date.UTC(year, mon, 0, 23, 59, 59, 999));
     return { start, end };
   }
+
+  private mapAdminUser(admin: AdminUserEntity) {
+    return {
+      id: admin.id,
+      email: admin.email,
+      role: admin.role,
+      active: admin.active,
+      firebaseLinked: Boolean(admin.firebaseUid),
+      createdAt: admin.createdAt.toISOString(),
+    };
+  }
+
+  private signCloudinaryParams(params: Record<string, string>, apiSecret: string): string {
+    const base = Object.entries(params)
+      .filter(([, value]) => value.length > 0)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => `${key}=${value}`)
+      .join('&');
+
+    return createHash('sha1').update(base + apiSecret).digest('hex');
+  }
+
+  private resolveCloudinaryConfig() {
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME ?? '';
+    const apiKey = process.env.CLOUDINARY_API_KEY ?? '';
+    const apiSecret = process.env.CLOUDINARY_API_SECRET ?? '';
+    const folder = process.env.CLOUDINARY_UPLOAD_FOLDER ?? 'stylebook/gallery';
+
+    if (!cloudName || !apiKey || !apiSecret) {
+      throw new BadRequestException('Cloudinary no configurado');
+    }
+
+    return { cloudName, apiKey, apiSecret, folder };
+  }
+
+  private buildCloudinaryPublicId(timestamp: number): string {
+    return `gallery_${timestamp}_${Math.floor(Math.random() * 1_000_000)}`;
+  }
 }
+
+
+
 

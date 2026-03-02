@@ -9,6 +9,7 @@ import {
   Scissors,
   Image,
   DollarSign,
+  ShieldCheck,
   LogOut,
   Menu,
   X,
@@ -23,6 +24,7 @@ const LINKS = [
   { to: `${ADMIN_ROUTE}/services`, icon: Scissors, label: "Servicios" },
   { to: `${ADMIN_ROUTE}/gallery`, icon: Image, label: "Galería" },
   { to: `${ADMIN_ROUTE}/income`, icon: DollarSign, label: "Ingresos" },
+  { to: `${ADMIN_ROUTE}/access`, icon: ShieldCheck, label: "Accesos" },
 ];
 
 export default function AdminLayout() {

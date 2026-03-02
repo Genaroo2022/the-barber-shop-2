@@ -96,12 +96,18 @@ export interface AdminGalleryImageUpsertRequest {
   active: boolean;
 }
 
+export interface AdminGalleryUploadResponse {
+  imageUrl: string;
+  timestamp: number;
+}
+
 export interface AdminGalleryUploadSignatureResponse {
   cloudName: string;
   apiKey: string;
-  timestamp: number;
-  signature: string;
   folder: string;
+  timestamp: number;
+  publicId: string;
+  signature: string;
 }
 
 export interface OverviewMetricsResponse {
@@ -160,4 +166,25 @@ export interface AdminClientUpsertRequest {
 export interface MergeClientsRequest {
   sourceClientId: string;
   targetClientId: string;
+}
+
+export interface AdminUserResponse {
+  id: string;
+  email: string | null;
+  role: string;
+  active: boolean;
+  firebaseLinked: boolean;
+  createdAt: string;
+}
+
+export interface AdminUserCreateRequest {
+  email: string;
+  password?: string;
+  active: boolean;
+}
+
+export interface AdminUserUpdateRequest {
+  email?: string;
+  password?: string;
+  active?: boolean;
 }

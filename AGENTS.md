@@ -107,8 +107,9 @@ Appointment statuses:
 - Health check endpoint (`/api/health`)
 
 ### Admin use cases
-- Login with email/password
-- Login with Firebase ID token (Google popup in frontend, if configured)
+- Login in admin UI with Firebase ID token (Google popup only)
+- Restrict Google login to active admins authorized in `admin_users`
+- Manage authorized admin users from `Admin > Accesos` (create/activate/deactivate/delete)
 - Manage appointments (list/update status/update/delete)
 - Detect stale pending appointments
 - Manage clients (list/update/delete/merge)
@@ -159,9 +160,14 @@ Admin (Bearer token required):
 - `DELETE /api/admin/services/:id`
 - `GET /api/admin/gallery`
 - `GET /api/admin/gallery/upload-signature`
+- `POST /api/admin/gallery/upload`
 - `POST /api/admin/gallery`
 - `PUT /api/admin/gallery/:id`
 - `DELETE /api/admin/gallery/:id`
+- `GET /api/admin/admin-users`
+- `POST /api/admin/admin-users`
+- `PATCH /api/admin/admin-users/:id`
+- `DELETE /api/admin/admin-users/:id`
 
 Webhooks:
 - `GET /api/webhooks/whatsapp`
@@ -280,6 +286,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml down
 3. Maintain auth storage policy
 - Keep auth token in `sessionStorage` only.
 - Do not reintroduce persistent login in `localStorage` unless requested.
+- Keep admin login UI Google-only unless explicitly requested.
 
 4. Migration safety
 - Keep migration execution before app listen.
@@ -331,3 +338,6 @@ Before handoff:
 - Mobile navbar items have full-row tap targets and corrected section anchoring for `Servicios` and `Contacto`.
 - Admin pages (`Dashboard`, `Turnos`, `Clientes`, `Ingresos`) avoid horizontal scrolling on mobile.
 - Month selectors in admin were standardized with a reusable component to avoid month/year truncation.
+- Admin login page uses Google-only access (no email/password inputs in UI).
+- Firebase auth is bound to an allowlist of active admins (`admin_users`).
+- Admin includes `Accesos` page for authorized account management.

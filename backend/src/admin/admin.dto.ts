@@ -1,4 +1,4 @@
-﻿import { IsBoolean, IsDateString, IsIn, IsNumber, IsOptional, IsString, IsUUID, Length, Min } from 'class-validator';
+﻿import { IsBoolean, IsDateString, IsEmail, IsIn, IsNumber, IsOptional, IsString, IsUUID, Length, Min } from 'class-validator';
 import { AppointmentStatus } from '../common/constants';
 
 export class UpdateAppointmentStatusDto {
@@ -104,5 +104,35 @@ export class CreateManualIncomeDto {
   @IsString()
   @Length(0, 255)
   notes?: string;
+}
+
+export class AdminUserCreateDto {
+  @IsEmail()
+  @Length(5, 120)
+  email!: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(8, 120)
+  password?: string;
+
+  @IsBoolean()
+  active!: boolean;
+}
+
+export class AdminUserUpdateDto {
+  @IsOptional()
+  @IsEmail()
+  @Length(5, 120)
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(8, 120)
+  password?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
 }
 

@@ -1,6 +1,9 @@
-﻿import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
+﻿import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import {
+  AdminUserCreateDto,
+  AdminUserUpdateDto,
   AdminAppointmentUpsertDto,
   AdminClientUpsertDto,
   AdminGalleryImageUpsertDto,
@@ -121,8 +124,14 @@ export class AdminController {
   }
 
   @Get('/gallery/upload-signature')
-  uploadSignature() {
+  getGalleryUploadSignature() {
     return this.adminService.getGalleryUploadSignature();
+  }
+
+  @Post('/gallery/upload')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadGallery(@UploadedFile() file?: { buffer: Buffer; mimetype: string; size: number; originalname: string }) {
+    return this.adminService.uploadGalleryImage(file);
   }
 
   @Post('/gallery')
@@ -139,5 +148,32 @@ export class AdminController {
   deleteGallery(@Param('id') id: string) {
     return this.adminService.deleteGalleryImage(id);
   }
+
+  @Get('/admin-users')
+  listAdminUsers() {
+    return this.adminService.listAdminUsers();
+  }
+
+  @Post('/admin-users')
+  createAdminUser(@Body() dto: AdminUserCreateDto) {
+    return this.adminService.createAdminUser(dto);
+  }
+
+  @Patch('/admin-users/:id')
+  updateAdminUser(
+    @Param('id') id: string,
+    @Body() dto: AdminUserUpdateDto,
+    @Req() req: { user?: { sub?: string } },
+  ) {
+    return this.adminService.updateAdminUser(id, dto, req.user?.sub ?? null);
+  }
+
+  @Delete('/admin-users/:id')
+  deleteAdminUser(@Param('id') id: string, @Req() req: { user?: { sub?: string } }) {
+    return this.adminService.deleteAdminUser(id, req.user?.sub ?? null);
+  }
 }
+
+
+
 

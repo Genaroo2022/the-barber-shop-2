@@ -1,7 +1,12 @@
 ﻿import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api";
-import type { GalleryImageResponse, AdminGalleryImageUpsertRequest, AdminGalleryUploadSignatureResponse } from "@/lib/types";
+import type {
+  GalleryImageResponse,
+  AdminGalleryImageUpsertRequest,
+  AdminGalleryUploadResponse,
+  AdminGalleryUploadSignatureResponse,
+} from "@/lib/types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -54,18 +59,60 @@ export default function GalleryPage() {
   const handleUpload = async (file: File) => {
     setUploading(true);
     try {
-      const sig = await api.get<AdminGalleryUploadSignatureResponse>("/api/admin/gallery/upload-signature");
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("api_key", sig.apiKey);
-      fd.append("timestamp", String(sig.timestamp));
-      fd.append("signature", sig.signature);
-      fd.append("folder", sig.folder);
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${sig.cloudName}/image/upload`, { method: "POST", body: fd });
-      const data = await res.json();
-      setForm((prev) => ({ ...prev, imageUrl: data.secure_url }));
-    } catch {
-      toast({ title: "Error al subir imagen", variant: "destructive" });
+      if (!file.type.startsWith("image/")) {
+        throw new ApiError("El archivo debe ser una imagen", 400);
+      }
+
+      const signature = await api.get<AdminGalleryUploadSignatureResponse>("/api/admin/gallery/upload-signature");
+      const uploadData = new FormData();
+      uploadData.append("file", file);
+      uploadData.append("api_key", signature.apiKey);
+      uploadData.append("timestamp", String(signature.timestamp));
+      uploadData.append("signature", signature.signature);
+      uploadData.append("folder", signature.folder);
+      uploadData.append("public_id", signature.publicId);
+
+      const uploadResponse = await fetch(`https://api.cloudinary.com/v1_1/${signature.cloudName}/image/upload`, {
+        method: "POST",
+        body: uploadData,
+      });
+
+      if (!uploadResponse.ok) {
+        let cloudinaryError = "No se pudo subir la imagen a Cloudinary";
+        try {
+          const errData = (await uploadResponse.json()) as { error?: { message?: string } };
+          if (errData.error?.message) {
+            cloudinaryError = errData.error.message;
+          }
+        } catch {
+          // ignore parse errors and keep generic message
+        }
+        throw new ApiError(cloudinaryError, uploadResponse.status);
+      }
+
+      const data = (await uploadResponse.json()) as AdminGalleryUploadResponse & { secure_url?: string };
+      const imageUrl = data.imageUrl || data.secure_url;
+      if (!imageUrl) {
+        throw new ApiError("Cloudinary no devolvió URL de imagen", 500);
+      }
+
+      setForm((prev) => ({ ...prev, imageUrl }));
+    } catch (err) {
+      try {
+        const fd = new FormData();
+        fd.append("file", file);
+        const fallback = await api.postForm<AdminGalleryUploadResponse>("/api/admin/gallery/upload", fd);
+        setForm((prev) => ({ ...prev, imageUrl: fallback.imageUrl }));
+        toast({ title: "Imagen subida", description: "Se completó por la ruta segura del backend." });
+      } catch (fallbackErr) {
+        const directMsg = err instanceof ApiError ? err.message : "Error al subir imagen";
+        const fallbackMsg = fallbackErr instanceof ApiError ? fallbackErr.message : "Error en subida de respaldo";
+        toast({
+          title: "Error",
+          description: `${directMsg}. ${fallbackMsg}`,
+          variant: "destructive",
+        });
+      }
     } finally {
       setUploading(false);
     }
@@ -237,4 +284,3 @@ export default function GalleryPage() {
     </div>
   );
 }
-

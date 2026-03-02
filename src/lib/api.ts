@@ -12,9 +12,13 @@ class ApiClient {
   ): Promise<T> {
     const token = this.getToken();
     const headers: Record<string, string> = {
-      "Content-Type": "application/json",
       ...((options.headers as Record<string, string>) || {}),
     };
+
+    const isFormDataBody = typeof FormData !== "undefined" && options.body instanceof FormData;
+    if (!isFormDataBody && !headers["Content-Type"]) {
+      headers["Content-Type"] = "application/json";
+    }
 
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
@@ -53,6 +57,13 @@ class ApiClient {
     return this.request<T>(endpoint, {
       method: "POST",
       body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
+  postForm<T>(endpoint: string, formData: FormData) {
+    return this.request<T>(endpoint, {
+      method: "POST",
+      body: formData,
     });
   }
 

@@ -13,8 +13,9 @@ Proyecto de barbería con frontend React (estilos actuales conservados) y backen
 - Horarios ocupados reactivos (`/api/public/appointments/occupied`)
 - Catálogo de servicios público y admin
 - Galería pública y admin
-- Login admin por email/password y Firebase token
+- Login admin con Google (Firebase ID token) y lista blanca de administradores autorizados
 - Gestión admin de turnos, clientes, ingresos manuales y métricas
+- Gestión de accesos admin (alta/baja/activación de administradores autorizados)
 - Merge de clientes por teléfono
 - Detección de turnos pendientes estancados
 - Webhook WhatsApp (verificación + recepción)
@@ -94,6 +95,10 @@ En `.env` (raíz):
 VITE_API_BASE_URL="http://192.168.1.15:8080"
 VITE_LOGIN_PATH="/admin/login"
 VITE_ADMIN_PATH="/admin"
+VITE_FIREBASE_API_KEY=""
+VITE_FIREBASE_AUTH_DOMAIN=""
+VITE_FIREBASE_PROJECT_ID=""
+VITE_FIREBASE_APP_ID=""
 ```
 
 ## Variables backend
@@ -105,6 +110,9 @@ Claves mínimas recomendadas:
 - `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
 - `JWT_SECRET`
 - `CORS_ALLOWED_ORIGINS`
+- `FIREBASE_PROJECT_ID` (para validar el ID token)
+- `FIREBASE_WEB_API_KEY` (Web API Key del proyecto Firebase)
+- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_UPLOAD_FOLDER`
 
 ## Notas
 
@@ -115,9 +123,8 @@ Claves mínimas recomendadas:
 ## Acceso admin y red local
 
 - Login admin: `http://localhost:5173/admin/login`
-- Credenciales por defecto:
-  - Email: `admin@barberia.com`
-  - Password: `Admin12345`
+- Login del panel: solo Google (Firebase popup)
+- Solo ingresan cuentas Google que estén autorizadas como administradores activos en `Admin > Accesos`
 - Acceso desde celular en la misma red:
   - Frontend: `http://192.168.1.15:5173`
   - Admin login: `http://192.168.1.15:5173/admin/login`
@@ -135,4 +142,8 @@ Claves mínimas recomendadas:
   - Frontend muestra toast descriptivo y modal de confirmación.
 - En Admin (`Dashboard`, `Turnos`, `Clientes`, `Ingresos`) se eliminó el scroll horizontal en móvil.
 - Selectores de mes en Admin estandarizados para mostrar mes/año completo sin recortes.
+- Login admin UI simplificado a Google-only (sin inputs de usuario/contraseña).
+- Nuevo módulo `Admin > Accesos` para gestionar administradores autorizados.
+- Autorización Firebase endurecida: solo emails verificados y presentes en `admin_users` activos.
+- Subida de galería con firma Cloudinary + fallback seguro por backend si falla la subida directa.
 

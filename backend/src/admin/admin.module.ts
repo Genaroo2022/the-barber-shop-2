@@ -7,6 +7,7 @@ import { ClientEntity } from '../entities/client.entity';
 import { ServiceEntity } from '../entities/service.entity';
 import { ManualIncomeEntryEntity } from '../entities/manual-income-entry.entity';
 import { GalleryImageEntity } from '../entities/gallery-image.entity';
+import { AdminUserEntity } from '../entities/admin-user.entity';
 import { AuthModule } from '../auth/auth.module';
 import { PhoneService } from '../common/phone.service';
 
@@ -19,6 +20,7 @@ import { PhoneService } from '../common/phone.service';
       ServiceEntity,
       ManualIncomeEntryEntity,
       GalleryImageEntity,
+      AdminUserEntity,
     ]),
   ],
   controllers: [AdminController],

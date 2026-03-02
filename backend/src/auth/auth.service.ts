@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 import { Repository } from 'typeorm';
 import { AdminUserEntity } from '../entities/admin-user.entity';
+import { FirebaseTokenVerifierService } from './firebase-token-verifier.service';
 
 @Injectable()
 export class AuthService {
@@ -11,6 +12,7 @@ export class AuthService {
     @InjectRepository(AdminUserEntity)
     private readonly adminRepo: Repository<AdminUserEntity>,
     private readonly jwtService: JwtService,
+    private readonly firebaseTokenVerifier: FirebaseTokenVerifierService,
   ) {}
 
   async login(email: string, password: string) {
@@ -33,14 +35,29 @@ export class AuthService {
   }
 
   async loginWithFirebaseIdToken(idToken: string) {
-    const uid = this.extractUid(idToken);
-    if (!uid) {
-      throw new UnauthorizedException('Token de Firebase invalido');
+    const verified = await this.firebaseTokenVerifier.verifyIdToken(idToken);
+    if (!verified.email || !verified.emailVerified) {
+      throw new UnauthorizedException('Debes usar una cuenta Google con email verificado');
     }
 
-    const admin = await this.adminRepo.findOne({ where: { firebaseUid: uid, active: true } });
+    let admin = await this.adminRepo.findOne({ where: { firebaseUid: verified.uid, active: true } });
+
+    // Strict allowlist via admin_users: only active admins are allowed to auto-link once by email.
     if (!admin) {
-      throw new UnauthorizedException(`Usuario no encontrado. UID: ${uid}`);
+      admin = await this.adminRepo
+        .createQueryBuilder('a')
+        .where('lower(a.email) = lower(:email)', { email: verified.email })
+        .andWhere('a.active = true')
+        .getOne();
+
+      if (admin && !admin.firebaseUid) {
+        admin.firebaseUid = verified.uid;
+        admin = await this.adminRepo.save(admin);
+      }
+    }
+
+    if (!admin) {
+      throw new UnauthorizedException('Usuario admin no autorizado para login con Firebase');
     }
 
     return this.issueToken(admin.id);
@@ -61,18 +78,6 @@ export class AuthService {
       tokenType: 'Bearer',
       expiresInSeconds,
     };
-  }
-
-  private extractUid(idToken: string): string | null {
-    const chunks = idToken.split('.');
-    if (chunks.length < 2) return null;
-    try {
-      const payloadJson = Buffer.from(chunks[1], 'base64url').toString('utf8');
-      const payload = JSON.parse(payloadJson) as { user_id?: string; sub?: string };
-      return payload.user_id ?? payload.sub ?? null;
-    } catch {
-      return null;
-    }
   }
 }
 
