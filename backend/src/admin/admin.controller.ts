@@ -1,10 +1,9 @@
-﻿import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import {
   AdminUserCreateDto,
   AdminUserUpdateDto,
-  AdminAppointmentUpsertDto,
   AdminClientUpsertDto,
   AdminGalleryImageUpsertDto,
   AdminServiceUpsertDto,
@@ -36,11 +35,6 @@ export class AdminController {
   @Patch('/appointments/:id/status')
   updateStatus(@Param('id') id: string, @Body() dto: UpdateAppointmentStatusDto) {
     return this.adminService.updateAppointmentStatus(id, dto.status);
-  }
-
-  @Put('/appointments/:id')
-  updateAppointment(@Param('id') id: string, @Body() dto: AdminAppointmentUpsertDto) {
-    return this.adminService.updateAppointment(id, dto);
   }
 
   @Delete('/appointments/:id')
@@ -91,11 +85,6 @@ export class AdminController {
   @Delete('/metrics/income/manual/:id')
   deleteManualIncome(@Param('id') id: string) {
     return this.adminService.deleteManualIncome(id);
-  }
-
-  @Get('/metrics/clients')
-  getClientsCompat(@Query('limit') limit = 500, @Query('page') page = 0) {
-    return this.adminService.listClients(Number(limit), Number(page));
   }
 
   @Get('/services')
@@ -173,7 +162,3 @@ export class AdminController {
     return this.adminService.deleteAdminUser(id, req.user?.sub ?? null);
   }
 }
-
-
-
-

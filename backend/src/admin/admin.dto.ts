@@ -1,30 +1,9 @@
-﻿import { IsBoolean, IsDateString, IsEmail, IsIn, IsNumber, IsOptional, IsString, IsUUID, Length, Min } from 'class-validator';
+import { IsBoolean, IsDateString, IsEmail, IsIn, IsNumber, IsOptional, IsString, IsUUID, Length, Min } from 'class-validator';
 import { AppointmentStatus } from '../common/constants';
 
 export class UpdateAppointmentStatusDto {
   @IsIn(['PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'])
   status!: AppointmentStatus;
-}
-
-export class AdminAppointmentUpsertDto {
-  @IsString()
-  @Length(2, 120)
-  clientName!: string;
-
-  @IsString()
-  @Length(7, 40)
-  clientPhone!: string;
-
-  @IsUUID()
-  serviceId!: string;
-
-  @IsDateString()
-  appointmentAt!: string;
-
-  @IsOptional()
-  @IsString()
-  @Length(0, 300)
-  notes?: string;
 }
 
 export class AdminClientUpsertDto {
@@ -135,4 +114,3 @@ export class AdminUserUpdateDto {
   @IsBoolean()
   active?: boolean;
 }
-

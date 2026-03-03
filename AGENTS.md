@@ -68,7 +68,7 @@ Key folders:
 - `backend/src/app.module.ts`: module wiring
 - `backend/src/database/migration.service.ts`: SQL migration runner
 - `backend/src/entities`: TypeORM entities
-- `backend/src/auth`: login/password + firebase token auth + JWT guard + admin bootstrap
+- `backend/src/auth`: firebase token auth + JWT guard + admin bootstrap
 - `backend/src/public`: public controllers/services
 - `backend/src/admin`: protected admin controllers/services
 - `backend/src/webhooks`: WhatsApp webhook endpoints
@@ -139,14 +139,12 @@ Public:
 - `POST /api/public/appointments`
 
 Auth:
-- `POST /api/auth/login`
 - `POST /api/auth/login/firebase`
 
 Admin (Bearer token required):
 - `GET /api/admin/appointments`
 - `GET /api/admin/appointments/stale-pending`
 - `PATCH /api/admin/appointments/:id/status`
-- `PUT /api/admin/appointments/:id`
 - `DELETE /api/admin/appointments/:id`
 - `GET /api/admin/clients`
 - `PUT /api/admin/clients/:id`
@@ -157,7 +155,6 @@ Admin (Bearer token required):
 - `POST /api/admin/metrics/income/manual`
 - `PUT /api/admin/metrics/income/manual/:id`
 - `DELETE /api/admin/metrics/income/manual/:id`
-- `GET /api/admin/metrics/clients` (compat endpoint)
 - `GET /api/admin/services`
 - `POST /api/admin/services`
 - `PUT /api/admin/services/:id`
@@ -187,6 +184,7 @@ Webhooks:
 - `VITE_FIREBASE_AUTH_DOMAIN`
 - `VITE_FIREBASE_PROJECT_ID`
 - `VITE_FIREBASE_APP_ID`
+- `VITE_WHATSAPP_BOOKING_PHONE`
 
 LAN/mobile (optional but currently used):
 - `VITE_API_BASE_URL=http://192.168.1.15:8080`
@@ -363,3 +361,4 @@ Before handoff:
 - Gallery sort-order collisions are handled with a swap-confirmation modal.
 - Admin modal titles use improved legibility while preserving visual style.
 - Manual income dialog uses explicit labels for amount vs tip inputs.
+

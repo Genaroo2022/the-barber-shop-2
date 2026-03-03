@@ -1,4 +1,4 @@
-﻿import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
 import { createHash, randomBytes } from 'crypto';
@@ -12,7 +12,6 @@ import { AdminUserEntity } from '../entities/admin-user.entity';
 import { AppointmentStatus } from '../common/constants';
 import { PhoneService } from '../common/phone.service';
 import {
-  AdminAppointmentUpsertDto,
   AdminClientUpsertDto,
   AdminGalleryImageUpsertDto,
   AdminServiceUpsertDto,
@@ -107,35 +106,6 @@ export class AdminService {
     const appointment = await this.appointmentsRepo.findOne({ where: { id } });
     if (!appointment) throw new NotFoundException('Turno no encontrado');
     appointment.status = status;
-    const saved = await this.appointmentsRepo.save(appointment);
-    return this.mapAppointment(saved);
-  }
-
-  async updateAppointment(id: string, dto: AdminAppointmentUpsertDto) {
-    const appointment = await this.appointmentsRepo.findOne({ where: { id } });
-    if (!appointment) throw new NotFoundException('Turno no encontrado');
-
-    const service = await this.servicesRepo.findOne({ where: { id: dto.serviceId } });
-    if (!service) throw new BadRequestException('Servicio no encontrado');
-
-    const normalizedPhone = this.phoneService.normalize(dto.clientPhone);
-    if (!normalizedPhone) throw new BadRequestException('Telefono invalido');
-
-    let client = await this.clientsRepo.findOne({ where: { phoneNormalized: normalizedPhone } });
-    if (!client) {
-      client = await this.clientsRepo.save(
-        this.clientsRepo.create({
-          name: dto.clientName,
-          phone: dto.clientPhone,
-          phoneNormalized: normalizedPhone,
-        }),
-      );
-    }
-
-    appointment.clientId = client.id;
-    appointment.serviceId = service.id;
-    appointment.appointmentAt = new Date(dto.appointmentAt);
-    appointment.notes = dto.notes ?? null;
     const saved = await this.appointmentsRepo.save(appointment);
     return this.mapAppointment(saved);
   }
@@ -690,6 +660,7 @@ export class AdminService {
     return `gallery_${timestamp}_${Math.floor(Math.random() * 1_000_000)}`;
   }
 }
+
 
 
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { format, addDays, isBefore, isSameDay, startOfToday, parseISO } from "date-fns";
@@ -15,6 +15,7 @@ import type {
   PublicOccupiedAppointmentResponse,
 } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
+import { getBookingWhatsAppUrl } from "@/lib/whatsapp";
 
 type Step = "service" | "date" | "time" | "info" | "confirm" | "success";
 
@@ -28,6 +29,7 @@ export default function BookingSection() {
   const [clientPhone, setClientPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [result, setResult] = useState<PublicAppointmentResponse | null>(null);
+  const [whatsAppRedirectUrl, setWhatsAppRedirectUrl] = useState<string | null>(null);
 
   const { data: services } = useQuery({
     queryKey: ["public-services"],
@@ -55,6 +57,14 @@ export default function BookingSection() {
     mutationFn: (data: CreateAppointmentRequest) =>
       api.post<PublicAppointmentResponse>("/api/public/appointments", data),
     onSuccess: (data) => {
+      const redirectUrl = getBookingWhatsAppUrl({
+        clientName: clientName.trim(),
+        clientPhone: clientPhone.trim(),
+        serviceName: data.serviceName,
+        appointmentAt: data.appointmentAt,
+        notes: notes.trim() || undefined,
+      });
+      setWhatsAppRedirectUrl(redirectUrl);
       setResult(data);
       setStep("success");
     },
@@ -112,16 +122,13 @@ export default function BookingSection() {
     });
   };
 
-  const reset = () => {
-    setStep("service");
-    setSelectedService(null);
-    setSelectedDate(undefined);
-    setSelectedTime(null);
-    setClientName("");
-    setClientPhone("");
-    setNotes("");
-    setResult(null);
-  };
+  useEffect(() => {
+    if (step !== "success" || !whatsAppRedirectUrl) return;
+    const timeoutId = window.setTimeout(() => {
+      window.location.assign(whatsAppRedirectUrl);
+    }, 900);
+    return () => window.clearTimeout(timeoutId);
+  }, [step, whatsAppRedirectUrl]);
 
   return (
     <section id="reservar" className="py-24 px-4">
@@ -326,9 +333,11 @@ export default function BookingSection() {
                   <p className="text-muted-foreground mb-6">
                     Tu turno para <strong className="text-foreground">{result?.serviceName}</strong> fue agendado.
                   </p>
-                  <Button onClick={reset} variant="outline" className="uppercase tracking-wider">
-                    Reservar otro turno
-                  </Button>
+                  <p className="text-sm text-muted-foreground">
+                    {whatsAppRedirectUrl
+                      ? "Te estamos redirigiendo a WhatsApp para continuar."
+                      : "Redirección a WhatsApp pendiente de configuración."}
+                  </p>
                 </div>
               </StepWrapper>
             )}

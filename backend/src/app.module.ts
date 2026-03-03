@@ -1,9 +1,8 @@
-﻿import { Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { MigrationService } from './database/migration.service';
 import { AuthModule } from './auth/auth.module';
 import { PublicModule } from './public/public.module';
@@ -49,8 +48,7 @@ import { PhoneService } from './common/phone.service';
     WebhooksModule,
   ],
   controllers: [AppController],
-  providers: [AppService, MigrationService, PhoneService],
+  providers: [MigrationService, PhoneService],
   exports: [PhoneService],
 })
 export class AppModule {}
-

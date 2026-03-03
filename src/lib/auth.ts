@@ -1,8 +1,8 @@
-import { api } from "./api";
-import type { LoginRequest, LoginResponse } from "./types";
+import { api } from './api';
+import type { LoginResponse } from './types';
 
-const TOKEN_KEY = "auth_token";
-const EXPIRY_KEY = "auth_expiry";
+const TOKEN_KEY = 'auth_token';
+const EXPIRY_KEY = 'auth_expiry';
 
 export function getToken(): string | null {
   const token = sessionStorage.getItem(TOKEN_KEY);
@@ -32,14 +32,8 @@ export function setLoginToken(res: LoginResponse): void {
   localStorage.removeItem(EXPIRY_KEY);
 }
 
-export async function login(credentials: LoginRequest): Promise<LoginResponse> {
-  const res = await api.post<LoginResponse>("/api/auth/login", credentials);
-  setLoginToken(res);
-  return res;
-}
-
 export async function loginWithFirebase(idToken: string): Promise<LoginResponse> {
-  const res = await api.post<LoginResponse>("/api/auth/login/firebase", { idToken });
+  const res = await api.post<LoginResponse>('/api/auth/login/firebase', { idToken });
   setLoginToken(res);
   return res;
 }

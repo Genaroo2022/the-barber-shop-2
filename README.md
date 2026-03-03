@@ -26,6 +26,7 @@ Proyecto de barbería con frontend React (estilos actuales conservados) y backen
 - Bloqueo de turnos en fecha/hora pasada (frontend + backend)
 - Confirmación de borrado con modal (sin `window.confirm`)
 - Validaciones de formularios en público y admin
+- Redirección automática a WhatsApp al confirmar turno (si `VITE_WHATSAPP_BOOKING_PHONE` está configurado)
 
 ## Estructura
 
@@ -102,6 +103,7 @@ VITE_FIREBASE_API_KEY=""
 VITE_FIREBASE_AUTH_DOMAIN=""
 VITE_FIREBASE_PROJECT_ID=""
 VITE_FIREBASE_APP_ID=""
+VITE_WHATSAPP_BOOKING_PHONE=""
 ```
 
 ## Variables backend

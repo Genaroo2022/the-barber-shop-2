@@ -38,11 +38,6 @@ export interface PublicAppointmentResponse {
   status: AppointmentStatus;
 }
 
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
 export interface LoginResponse {
   accessToken: string;
   tokenType: string;
@@ -150,14 +145,6 @@ export interface CreateManualIncomeRequest {
   notes?: string;
 }
 
-export interface AdminAppointmentUpsertRequest {
-  clientName: string;
-  clientPhone: string;
-  serviceId: string;
-  appointmentAt: string;
-  notes?: string;
-}
-
 export interface AdminClientUpsertRequest {
   name: string;
   phone: string;
@@ -188,3 +175,5 @@ export interface AdminUserUpdateRequest {
   password?: string;
   active?: boolean;
 }
+
+

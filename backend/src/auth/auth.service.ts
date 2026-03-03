@@ -1,7 +1,6 @@
-﻿import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import * as bcrypt from 'bcryptjs';
 import { Repository } from 'typeorm';
 import { AdminUserEntity } from '../entities/admin-user.entity';
 import { FirebaseTokenVerifierService } from './firebase-token-verifier.service';
@@ -14,25 +13,6 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly firebaseTokenVerifier: FirebaseTokenVerifierService,
   ) {}
-
-  async login(email: string, password: string) {
-    const admin = await this.adminRepo
-      .createQueryBuilder('a')
-      .where('lower(a.email) = lower(:email)', { email })
-      .andWhere('a.active = true')
-      .getOne();
-
-    if (!admin) {
-      throw new UnauthorizedException('Credenciales invalidas');
-    }
-
-    const ok = await bcrypt.compare(password, admin.passwordHash);
-    if (!ok) {
-      throw new UnauthorizedException('Credenciales invalidas');
-    }
-
-    return this.issueToken(admin.id);
-  }
 
   async loginWithFirebaseIdToken(idToken: string) {
     const verified = await this.firebaseTokenVerifier.verifyIdToken(idToken);
@@ -80,4 +60,3 @@ export class AuthService {
     };
   }
 }
-

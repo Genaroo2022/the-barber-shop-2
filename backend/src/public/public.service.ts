@@ -1,11 +1,10 @@
-﻿import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AppointmentEntity } from '../entities/appointment.entity';
 import { ClientEntity } from '../entities/client.entity';
 import { GalleryImageEntity } from '../entities/gallery-image.entity';
 import { ServiceEntity } from '../entities/service.entity';
-import { APPOINTMENT_STATUSES } from '../common/constants';
 import { PhoneService } from '../common/phone.service';
 import { CreatePublicAppointmentDto } from './create-public-appointment.dto';
 
@@ -63,10 +62,6 @@ export class PublicService {
   }
 
   async createAppointment(dto: CreatePublicAppointmentDto) {
-    if (!APPOINTMENT_STATUSES.includes('PENDING')) {
-      throw new BadRequestException('Estado no soportado');
-    }
-
     const service = await this.servicesRepo.findOne({ where: { id: dto.serviceId, active: true } });
     if (!service) {
       throw new BadRequestException('Servicio no disponible');
@@ -125,4 +120,6 @@ export class PublicService {
     };
   }
 }
+
+
 
