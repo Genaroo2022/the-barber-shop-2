@@ -5,6 +5,7 @@ import { AdminService } from './admin.service';
 import { AppointmentEntity } from '../entities/appointment.entity';
 import { ClientEntity } from '../entities/client.entity';
 import { ServiceEntity } from '../entities/service.entity';
+import { BarberEntity } from '../entities/barber.entity';
 import { ManualIncomeEntryEntity } from '../entities/manual-income-entry.entity';
 import { GalleryImageEntity } from '../entities/gallery-image.entity';
 import { AdminUserEntity } from '../entities/admin-user.entity';
@@ -18,6 +19,7 @@ import { PhoneService } from '../common/phone.service';
       AppointmentEntity,
       ClientEntity,
       ServiceEntity,
+      BarberEntity,
       ManualIncomeEntryEntity,
       GalleryImageEntity,
       AdminUserEntity,

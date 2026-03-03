@@ -22,10 +22,18 @@ export interface PublicOccupiedAppointmentResponse {
   appointmentAt: string;
 }
 
+export interface BarberResponse {
+  id: string;
+  name: string;
+  sortOrder: number;
+  active: boolean;
+}
+
 export interface CreateAppointmentRequest {
   clientName: string;
   clientPhone: string;
   serviceId: string;
+  barberId: string;
   appointmentAt: string;
   notes?: string;
 }
@@ -94,6 +102,12 @@ export interface AdminGalleryImageUpsertRequest {
 export interface AdminGalleryUploadResponse {
   imageUrl: string;
   timestamp: number;
+}
+
+export interface AdminBarberUpsertRequest {
+  name: string;
+  sortOrder: number;
+  active: boolean;
 }
 
 export interface AdminGalleryUploadSignatureResponse {

@@ -12,6 +12,9 @@ export class CreatePublicAppointmentDto {
   @IsUUID()
   serviceId!: string;
 
+  @IsUUID()
+  barberId!: string;
+
   @IsDateString()
   appointmentAt!: string;
 

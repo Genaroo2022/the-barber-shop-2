@@ -6,7 +6,6 @@ import { AuthService } from './auth.service';
 import { BootstrapAdminService } from './bootstrap-admin.service';
 import { AuthController } from './auth.controller';
 import { JwtAuthGuard } from './jwt-auth.guard';
-import { SimpleRateLimitService } from '../rate-limit/simple-rate-limit.service';
 import { FirebaseTokenVerifierService } from './firebase-token-verifier.service';
 
 @Module({
@@ -15,7 +14,7 @@ import { FirebaseTokenVerifierService } from './firebase-token-verifier.service'
     JwtModule.register({}),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtAuthGuard, SimpleRateLimitService, BootstrapAdminService, FirebaseTokenVerifierService],
+  providers: [AuthService, JwtAuthGuard, BootstrapAdminService, FirebaseTokenVerifierService],
   exports: [JwtAuthGuard, JwtModule],
 })
 export class AuthModule {}

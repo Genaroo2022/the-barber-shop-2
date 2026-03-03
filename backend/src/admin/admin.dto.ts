@@ -46,6 +46,19 @@ export class AdminServiceUpsertDto {
   active!: boolean;
 }
 
+export class AdminBarberUpsertDto {
+  @IsString()
+  @Length(2, 120)
+  name!: string;
+
+  @IsNumber()
+  @Min(0)
+  sortOrder!: number;
+
+  @IsBoolean()
+  active!: boolean;
+}
+
 export class AdminGalleryImageUpsertDto {
   @IsString()
   @Length(2, 120)

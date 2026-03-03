@@ -6,13 +6,13 @@ import { ServiceEntity } from '../entities/service.entity';
 import { GalleryImageEntity } from '../entities/gallery-image.entity';
 import { ClientEntity } from '../entities/client.entity';
 import { AppointmentEntity } from '../entities/appointment.entity';
+import { BarberEntity } from '../entities/barber.entity';
 import { PhoneService } from '../common/phone.service';
-import { SimpleRateLimitService } from '../rate-limit/simple-rate-limit.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ServiceEntity, GalleryImageEntity, ClientEntity, AppointmentEntity])],
+  imports: [TypeOrmModule.forFeature([ServiceEntity, GalleryImageEntity, ClientEntity, AppointmentEntity, BarberEntity])],
   controllers: [PublicController],
-  providers: [PublicService, PhoneService, SimpleRateLimitService],
+  providers: [PublicService, PhoneService],
 })
 export class PublicModule {}
 

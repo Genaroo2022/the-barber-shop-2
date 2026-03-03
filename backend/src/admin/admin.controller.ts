@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, Req, Upl
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import {
+  AdminBarberUpsertDto,
   AdminUserCreateDto,
   AdminUserUpdateDto,
   AdminClientUpsertDto,
@@ -12,6 +13,7 @@ import {
   UpdateAppointmentStatusDto,
 } from './admin.dto';
 import { AdminService } from './admin.service';
+import { resolveBarbershopId } from '../common/barbershop-context';
 
 @UseGuards(JwtAuthGuard)
 @Controller('/api/admin')
@@ -88,23 +90,65 @@ export class AdminController {
   }
 
   @Get('/services')
-  listServices() {
-    return this.adminService.listServices();
+  listServices(@Req() req: { headers?: Record<string, string | string[] | undefined> }) {
+    const barbershopId = resolveBarbershopId(req.headers?.['x-barbershop-id']);
+    return this.adminService.listServices(barbershopId);
   }
 
   @Post('/services')
-  createService(@Body() dto: AdminServiceUpsertDto) {
-    return this.adminService.createService(dto);
+  createService(
+    @Req() req: { headers?: Record<string, string | string[] | undefined> },
+    @Body() dto: AdminServiceUpsertDto,
+  ) {
+    const barbershopId = resolveBarbershopId(req.headers?.['x-barbershop-id']);
+    return this.adminService.createService(dto, barbershopId);
   }
 
   @Put('/services/:id')
-  updateService(@Param('id') id: string, @Body() dto: AdminServiceUpsertDto) {
-    return this.adminService.updateService(id, dto);
+  updateService(
+    @Req() req: { headers?: Record<string, string | string[] | undefined> },
+    @Param('id') id: string,
+    @Body() dto: AdminServiceUpsertDto,
+  ) {
+    const barbershopId = resolveBarbershopId(req.headers?.['x-barbershop-id']);
+    return this.adminService.updateService(id, dto, barbershopId);
   }
 
   @Delete('/services/:id')
-  deleteService(@Param('id') id: string) {
-    return this.adminService.deleteService(id);
+  deleteService(@Req() req: { headers?: Record<string, string | string[] | undefined> }, @Param('id') id: string) {
+    const barbershopId = resolveBarbershopId(req.headers?.['x-barbershop-id']);
+    return this.adminService.deleteService(id, barbershopId);
+  }
+
+  @Get('/barbers')
+  listBarbers(@Req() req: { headers?: Record<string, string | string[] | undefined> }) {
+    const barbershopId = resolveBarbershopId(req.headers?.['x-barbershop-id']);
+    return this.adminService.listBarbers(barbershopId);
+  }
+
+  @Post('/barbers')
+  createBarber(
+    @Req() req: { headers?: Record<string, string | string[] | undefined> },
+    @Body() dto: AdminBarberUpsertDto,
+  ) {
+    const barbershopId = resolveBarbershopId(req.headers?.['x-barbershop-id']);
+    return this.adminService.createBarber(dto, barbershopId);
+  }
+
+  @Put('/barbers/:id')
+  updateBarber(
+    @Req() req: { headers?: Record<string, string | string[] | undefined> },
+    @Param('id') id: string,
+    @Body() dto: AdminBarberUpsertDto,
+  ) {
+    const barbershopId = resolveBarbershopId(req.headers?.['x-barbershop-id']);
+    return this.adminService.updateBarber(id, dto, barbershopId);
+  }
+
+  @Delete('/barbers/:id')
+  deleteBarber(@Req() req: { headers?: Record<string, string | string[] | undefined> }, @Param('id') id: string) {
+    const barbershopId = resolveBarbershopId(req.headers?.['x-barbershop-id']);
+    return this.adminService.deleteBarber(id, barbershopId);
   }
 
   @Get('/gallery')

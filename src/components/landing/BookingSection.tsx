@@ -9,6 +9,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import type {
+  BarberResponse,
   ServiceCatalogResponse,
   CreateAppointmentRequest,
   PublicAppointmentResponse,
@@ -25,6 +26,7 @@ export default function BookingSection() {
   const [selectedService, setSelectedService] = useState<ServiceCatalogResponse | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [selectedBarberId, setSelectedBarberId] = useState<string>("");
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
   const [notes, setNotes] = useState("");
@@ -35,15 +37,31 @@ export default function BookingSection() {
     queryKey: ["public-services"],
     queryFn: () => api.get<ServiceCatalogResponse[]>("/api/public/services"),
   });
+  const { data: barbers, isLoading: barbersLoading } = useQuery({
+    queryKey: ["public-barbers"],
+    queryFn: () => api.get<BarberResponse[]>("/api/public/barbers"),
+  });
+
+  useEffect(() => {
+    if (!barbers || barbers.length === 0) {
+      setSelectedBarberId("");
+      return;
+    }
+
+    const selectedExists = barbers.some((barber) => barber.id === selectedBarberId);
+    if (!selectedExists) {
+      setSelectedBarberId(barbers[0].id);
+    }
+  }, [barbers, selectedBarberId]);
 
   const dateStr = selectedDate ? format(selectedDate, "yyyy-MM-dd") : "";
   const { data: occupied } = useQuery({
-    queryKey: ["occupied", selectedService?.id, dateStr],
+    queryKey: ["occupied", selectedService?.id, dateStr, selectedBarberId],
     queryFn: () =>
       api.get<PublicOccupiedAppointmentResponse[]>(
-        `/api/public/appointments/occupied?serviceId=${selectedService!.id}&date=${dateStr}`
+        `/api/public/appointments/occupied?serviceId=${selectedService!.id}&date=${dateStr}&barberId=${selectedBarberId}`
       ),
-    enabled: !!selectedService && !!dateStr,
+    enabled: !!selectedService && !!dateStr && !!selectedBarberId,
   });
 
   const occupiedTimes = new Set(
@@ -69,6 +87,16 @@ export default function BookingSection() {
       setStep("success");
     },
     onError: (err: Error) => {
+      if (err instanceof ApiError && err.status === 409) {
+        toast({
+          title: "Horario ocupado",
+          description:
+            "Lo sentimos, este turno acaba de ser reservado por otra persona. Por favor, elige otro horario.",
+          variant: "destructive",
+        });
+        setStep("time");
+        return;
+      }
       const msg = err instanceof ApiError ? err.message : "Error al crear el turno";
       toast({ title: "Error", description: msg, variant: "destructive" });
     },
@@ -104,6 +132,15 @@ export default function BookingSection() {
       return;
     }
     const appointmentAt = `${format(selectedDate, "yyyy-MM-dd")}T${selectedTime}:00`;
+    if (!selectedBarberId) {
+      toast({
+        title: "Barbero inv\u00e1lido",
+        description: "Seleccion\u00e1 un barbero para continuar.",
+        variant: "destructive",
+      });
+      setStep("time");
+      return;
+    }
     if (new Date(appointmentAt) <= new Date()) {
       toast({
         title: "Horario inv\u00e1lido",
@@ -117,6 +154,7 @@ export default function BookingSection() {
       clientName: clientName.trim(),
       clientPhone: clientPhone.trim(),
       serviceId: selectedService.id,
+      barberId: selectedBarberId,
       appointmentAt,
       notes: notes.trim() || undefined,
     });
@@ -219,6 +257,33 @@ export default function BookingSection() {
                 <p className="text-sm text-muted-foreground mb-4">
                   {selectedDate && format(selectedDate, "EEEE d 'de' MMMM", { locale: es })}
                 </p>
+                <div className="mb-4">
+                  <label className="text-sm text-muted-foreground mb-2 block">Barbero</label>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {barbers?.map((barber) => (
+                      <button
+                        key={barber.id}
+                        type="button"
+                        onClick={() => setSelectedBarberId(barber.id)}
+                        className={`p-3 text-sm border rounded-lg transition-all text-left ${
+                          selectedBarberId === barber.id
+                            ? "border-primary text-primary"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        {barber.name}
+                      </button>
+                    ))}
+                  </div>
+                  {barbersLoading && (
+                    <p className="text-xs text-muted-foreground mt-2">Cargando barberos...</p>
+                  )}
+                  {!barbersLoading && (!barbers || barbers.length === 0) && (
+                    <p className="text-xs text-destructive mt-2">
+                      No hay barberos activos para agendar. Contactá a la barbería.
+                    </p>
+                  )}
+                </div>
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                   {availableSlots.map((t) => (
                     <button

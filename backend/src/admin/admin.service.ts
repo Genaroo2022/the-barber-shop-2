@@ -4,6 +4,7 @@ import { Brackets, Repository } from 'typeorm';
 import { createHash, randomBytes } from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import { AppointmentEntity } from '../entities/appointment.entity';
+import { BarberEntity } from '../entities/barber.entity';
 import { ClientEntity } from '../entities/client.entity';
 import { ServiceEntity } from '../entities/service.entity';
 import { ManualIncomeEntryEntity } from '../entities/manual-income-entry.entity';
@@ -13,6 +14,7 @@ import { AppointmentStatus } from '../common/constants';
 import { PhoneService } from '../common/phone.service';
 import {
   AdminClientUpsertDto,
+  AdminBarberUpsertDto,
   AdminGalleryImageUpsertDto,
   AdminServiceUpsertDto,
   AdminUserCreateDto,
@@ -29,6 +31,8 @@ export class AdminService {
     private readonly clientsRepo: Repository<ClientEntity>,
     @InjectRepository(ServiceEntity)
     private readonly servicesRepo: Repository<ServiceEntity>,
+    @InjectRepository(BarberEntity)
+    private readonly barbersRepo: Repository<BarberEntity>,
     @InjectRepository(ManualIncomeEntryEntity)
     private readonly manualIncomeRepo: Repository<ManualIncomeEntryEntity>,
     @InjectRepository(GalleryImageEntity)
@@ -322,8 +326,8 @@ export class AdminService {
     await this.manualIncomeRepo.delete({ id });
   }
 
-  async listServices() {
-    const rows = await this.servicesRepo.find({ order: { name: 'ASC' } });
+  async listServices(barbershopId: string) {
+    const rows = await this.servicesRepo.find({ where: { barbershopId }, order: { name: 'ASC' } });
     return rows.map((row) => ({
       id: row.id,
       name: row.name,
@@ -334,8 +338,9 @@ export class AdminService {
     }));
   }
 
-  async createService(dto: AdminServiceUpsertDto) {
+  async createService(dto: AdminServiceUpsertDto, barbershopId: string) {
     const entity = this.servicesRepo.create({
+      barbershopId,
       name: dto.name,
       price: dto.price.toString(),
       durationMinutes: dto.durationMinutes,
@@ -346,8 +351,8 @@ export class AdminService {
     return this.mapService(saved);
   }
 
-  async updateService(id: string, dto: AdminServiceUpsertDto) {
-    const entity = await this.servicesRepo.findOne({ where: { id } });
+  async updateService(id: string, dto: AdminServiceUpsertDto, barbershopId: string) {
+    const entity = await this.servicesRepo.findOne({ where: { id, barbershopId } });
     if (!entity) throw new NotFoundException('Servicio no encontrado');
 
     entity.name = dto.name;
@@ -360,13 +365,13 @@ export class AdminService {
     return this.mapService(saved);
   }
 
-  async deleteService(id: string) {
-    const service = await this.servicesRepo.findOne({ where: { id } });
+  async deleteService(id: string, barbershopId: string) {
+    const service = await this.servicesRepo.findOne({ where: { id, barbershopId } });
     if (!service) {
       throw new NotFoundException('Servicio no encontrado');
     }
 
-    const appointmentsCount = await this.appointmentsRepo.count({ where: { serviceId: id } });
+    const appointmentsCount = await this.appointmentsRepo.count({ where: { serviceId: id, barbershopId } });
     if (appointmentsCount > 0) {
       throw new BadRequestException(
         'No se puede eliminar el servicio porque tiene turnos asociados. Elimina o reasigna esos turnos primero.',
@@ -374,6 +379,68 @@ export class AdminService {
     }
 
     await this.servicesRepo.delete({ id });
+  }
+
+  async listBarbers(barbershopId: string) {
+    const rows = await this.barbersRepo.find({ where: { barbershopId }, order: { sortOrder: 'ASC', name: 'ASC' } });
+    return rows.map((row) => this.mapBarber(row));
+  }
+
+  async createBarber(dto: AdminBarberUpsertDto, barbershopId: string) {
+    const normalizedName = dto.name.trim();
+    const existing = await this.barbersRepo
+      .createQueryBuilder('b')
+      .where('b.barbershop_id = :barbershopId', { barbershopId })
+      .andWhere('lower(b.name) = lower(:name)', { name: normalizedName })
+      .getOne();
+    if (existing) {
+      throw new BadRequestException('Ya existe un barbero con ese nombre');
+    }
+
+    const created = this.barbersRepo.create({
+      barbershopId,
+      name: normalizedName,
+      sortOrder: dto.sortOrder,
+      active: dto.active,
+    });
+    const saved = await this.barbersRepo.save(created);
+    return this.mapBarber(saved);
+  }
+
+  async updateBarber(id: string, dto: AdminBarberUpsertDto, barbershopId: string) {
+    const barber = await this.barbersRepo.findOne({ where: { id, barbershopId } });
+    if (!barber) throw new NotFoundException('Barbero no encontrado');
+
+    const normalizedName = dto.name.trim();
+    const existing = await this.barbersRepo
+      .createQueryBuilder('b')
+      .where('b.barbershop_id = :barbershopId', { barbershopId })
+      .andWhere('lower(b.name) = lower(:name)', { name: normalizedName })
+      .andWhere('b.id <> :id', { id })
+      .getOne();
+    if (existing) {
+      throw new BadRequestException('Ya existe un barbero con ese nombre');
+    }
+
+    barber.name = normalizedName;
+    barber.sortOrder = dto.sortOrder;
+    barber.active = dto.active;
+    const saved = await this.barbersRepo.save(barber);
+    return this.mapBarber(saved);
+  }
+
+  async deleteBarber(id: string, barbershopId: string) {
+    const barber = await this.barbersRepo.findOne({ where: { id, barbershopId } });
+    if (!barber) throw new NotFoundException('Barbero no encontrado');
+
+    const appointmentsCount = await this.appointmentsRepo.count({ where: { barberId: id, barbershopId } });
+    if (appointmentsCount > 0) {
+      throw new BadRequestException(
+        'No se puede eliminar el barbero porque tiene turnos asociados. Reasigna o elimina esos turnos primero.',
+      );
+    }
+
+    await this.barbersRepo.delete({ id });
   }
 
   async listGallery(limit = 500, page = 0) {
@@ -620,6 +687,15 @@ export class AdminService {
     const start = new Date(Date.UTC(year, mon - 1, 1, 0, 0, 0, 0));
     const end = new Date(Date.UTC(year, mon, 0, 23, 59, 59, 999));
     return { start, end };
+  }
+
+  private mapBarber(barber: BarberEntity) {
+    return {
+      id: barber.id,
+      name: barber.name,
+      sortOrder: barber.sortOrder,
+      active: barber.active,
+    };
   }
 
   private mapAdminUser(admin: AdminUserEntity) {

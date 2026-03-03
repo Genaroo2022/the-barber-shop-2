@@ -1,4 +1,4 @@
-﻿import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 
 const normalizePhone = (value: string) => value.replace(/\D/g, '');
 
@@ -7,13 +7,16 @@ export class ClientEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
+  @Column({ name: 'barbershop_id', type: 'uuid' })
+  barbershopId!: string;
+
   @Column({ type: 'varchar', length: 120 })
   name!: string;
 
   @Column({ type: 'varchar', length: 40 })
   phone!: string;
 
-  @Index('ux_clients_phone_normalized', { unique: true })
+  @Index('ux_clients_barbershop_phone_normalized', { unique: true })
   @Column({ name: 'phone_normalized', type: 'varchar', length: 20 })
   phoneNormalized!: string;
 

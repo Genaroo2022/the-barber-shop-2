@@ -1,7 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import { AppointmentEntity } from '../entities/appointment.entity';
+import { BarberEntity } from '../entities/barber.entity';
 import { ClientEntity } from '../entities/client.entity';
 import { GalleryImageEntity } from '../entities/gallery-image.entity';
 import { ServiceEntity } from '../entities/service.entity';
@@ -19,11 +20,13 @@ export class PublicService {
     private readonly clientsRepo: Repository<ClientEntity>,
     @InjectRepository(AppointmentEntity)
     private readonly appointmentsRepo: Repository<AppointmentEntity>,
+    @InjectRepository(BarberEntity)
+    private readonly barbersRepo: Repository<BarberEntity>,
     private readonly phoneService: PhoneService,
   ) {}
 
-  async listServices() {
-    const rows = await this.servicesRepo.find({ where: { active: true }, order: { name: 'ASC' } });
+  async listServices(barbershopId: string) {
+    const rows = await this.servicesRepo.find({ where: { active: true, barbershopId }, order: { name: 'ASC' } });
     return rows.map((row) => ({
       id: row.id,
       name: row.name,
@@ -46,25 +49,55 @@ export class PublicService {
     }));
   }
 
-  async listOccupied(serviceId: string, date: string) {
+  async listBarbers(barbershopId: string) {
+    const rows = await this.barbersRepo.find({
+      where: { barbershopId, active: true },
+      order: { sortOrder: 'ASC', name: 'ASC' },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      active: row.active,
+      sortOrder: row.sortOrder,
+    }));
+  }
+
+  async listOccupied(serviceId: string, date: string, barberId: string, barbershopId: string) {
     const start = new Date(`${date}T00:00:00.000Z`);
     const end = new Date(`${date}T23:59:59.999Z`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      throw new BadRequestException('Fecha invalida');
+    }
+
+    const service = await this.servicesRepo.findOne({ where: { id: serviceId, active: true, barbershopId } });
+    if (!service) {
+      throw new BadRequestException('Servicio no disponible');
+    }
+    const barber = await this.barbersRepo.findOne({ where: { id: barberId, barbershopId, active: true } });
+    if (!barber) {
+      throw new BadRequestException('Barbero no disponible');
+    }
 
     const rows = await this.appointmentsRepo
       .createQueryBuilder('a')
-      .where('a.service_id = :serviceId', { serviceId })
+      .where('a.barbershop_id = :barbershopId', { barbershopId })
+      .andWhere('a.barber_id = :barberId', { barberId })
       .andWhere('a.appointment_at BETWEEN :start AND :end', { start, end })
-      .andWhere('a.status IN (:...statuses)', { statuses: ['PENDING', 'CONFIRMED'] })
+      .andWhere('a.status IN (:...statuses)', { statuses: ['PENDING', 'CONFIRMED', 'COMPLETED'] })
       .orderBy('a.appointment_at', 'ASC')
       .getMany();
 
     return rows.map((row) => ({ appointmentAt: row.appointmentAt.toISOString() }));
   }
 
-  async createAppointment(dto: CreatePublicAppointmentDto) {
-    const service = await this.servicesRepo.findOne({ where: { id: dto.serviceId, active: true } });
+  async createAppointment(dto: CreatePublicAppointmentDto, barbershopId: string) {
+    const service = await this.servicesRepo.findOne({ where: { id: dto.serviceId, active: true, barbershopId } });
     if (!service) {
       throw new BadRequestException('Servicio no disponible');
+    }
+    const barber = await this.barbersRepo.findOne({ where: { id: dto.barberId, barbershopId, active: true } });
+    if (!barber) {
+      throw new BadRequestException('Barbero no disponible');
     }
 
     const appointmentAt = new Date(dto.appointmentAt);
@@ -80,9 +113,10 @@ export class PublicService {
       throw new BadRequestException('Telefono invalido');
     }
 
-    let client = await this.clientsRepo.findOne({ where: { phoneNormalized: normalizedPhone } });
+    let client = await this.clientsRepo.findOne({ where: { barbershopId, phoneNormalized: normalizedPhone } });
     if (!client) {
       client = this.clientsRepo.create({
+        barbershopId,
         name: dto.clientName.trim(),
         phone: dto.clientPhone.trim(),
         phoneNormalized: normalizedPhone,
@@ -90,18 +124,9 @@ export class PublicService {
       client = await this.clientsRepo.save(client);
     }
 
-    const existing = await this.appointmentsRepo.findOne({
-      where: {
-        serviceId: dto.serviceId,
-        appointmentAt,
-      },
-    });
-
-    if (existing && (existing.status === 'PENDING' || existing.status === 'CONFIRMED')) {
-      throw new BadRequestException('Horario no disponible');
-    }
-
     const appointment = this.appointmentsRepo.create({
+      barbershopId,
+      barberId: dto.barberId,
       clientId: client.id,
       serviceId: service.id,
       appointmentAt,
@@ -109,17 +134,22 @@ export class PublicService {
       notes: dto.notes?.trim() || null,
     });
 
-    const saved = await this.appointmentsRepo.save(appointment);
+    try {
+      const saved = await this.appointmentsRepo.save(appointment);
 
-    return {
-      id: saved.id,
-      serviceId: service.id,
-      serviceName: service.name,
-      appointmentAt: saved.appointmentAt.toISOString(),
-      status: saved.status,
-    };
+      return {
+        id: saved.id,
+        serviceId: service.id,
+        serviceName: service.name,
+        appointmentAt: saved.appointmentAt.toISOString(),
+        status: saved.status,
+      };
+    } catch (error) {
+      const pgCode = (error as { driverError?: { code?: string } })?.driverError?.code;
+      if (error instanceof QueryFailedError && pgCode === '23505') {
+        throw new ConflictException('Horario no disponible para este barbero. Elige otro horario.');
+      }
+      throw error;
+    }
   }
 }
-
-
-

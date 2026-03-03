@@ -1,12 +1,12 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, Link, useLocation } from "react-router-dom";
 import { isAuthenticated, logout } from "@/lib/auth";
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   CalendarDays,
   Users,
   Scissors,
+  UserRound,
   Image,
   DollarSign,
   ShieldCheck,
@@ -23,7 +23,8 @@ const LINKS = [
   { to: `${ADMIN_ROUTE}/appointments`, icon: CalendarDays, label: "Turnos" },
   { to: `${ADMIN_ROUTE}/clients`, icon: Users, label: "Clientes" },
   { to: `${ADMIN_ROUTE}/services`, icon: Scissors, label: "Servicios" },
-  { to: `${ADMIN_ROUTE}/gallery`, icon: Image, label: "Galería" },
+  { to: `${ADMIN_ROUTE}/barbers`, icon: UserRound, label: "Barberos" },
+  { to: `${ADMIN_ROUTE}/gallery`, icon: Image, label: "Galeria" },
   { to: `${ADMIN_ROUTE}/income`, icon: DollarSign, label: "Ingresos" },
   { to: `${ADMIN_ROUTE}/access`, icon: ShieldCheck, label: "Accesos" },
 ];
@@ -87,19 +88,19 @@ export default function AdminLayout() {
           </button>
         </div>
         <nav className="flex-1 p-3 space-y-1">
-          {LINKS.map((l) => (
+          {LINKS.map((link) => (
             <Link
-              key={l.to}
-              to={l.to}
+              key={link.to}
+              to={link.to}
               onClick={() => setSidebarOpen(false)}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                isActive(l.to, l.end)
+                isActive(link.to, link.end)
                   ? "bg-primary/10 text-primary font-medium"
                   : "text-muted-foreground hover:text-foreground hover:bg-secondary"
               }`}
             >
-              <l.icon size={18} />
-              {l.label}
+              <link.icon size={18} />
+              {link.label}
             </Link>
           ))}
         </nav>
@@ -113,7 +114,7 @@ export default function AdminLayout() {
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 w-full transition-colors"
           >
             <LogOut size={18} />
-            Cerrar sesión
+            Cerrar sesion
           </button>
         </div>
       </aside>
@@ -124,7 +125,7 @@ export default function AdminLayout() {
             <Menu size={20} />
           </button>
           <h2 className="text-lg font-medium" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
-            {LINKS.find((l) => isActive(l.to, l.end))?.label || "Admin"}
+            {LINKS.find((link) => isActive(link.to, link.end))?.label || "Admin"}
           </h2>
         </header>
         <main className="flex-1 p-4 lg:p-6 overflow-y-auto overflow-x-hidden">

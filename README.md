@@ -170,3 +170,29 @@ Requisitos de seguridad aplicados:
 - Mejor legibilidad tipográfica en títulos de modales del panel admin sin cambiar la estética general.
 - En `+ Ingreso manual`, los campos `Monto del servicio` y `Propina` ahora tienen etiquetas explícitas.
 
+
+## Actualizacion Multi-Tenant y Concurrencia (abril 2026)
+
+- Frontend y backend operan por sucursal usando `x-barbershop-id` (frontend lo envia globalmente desde `src/lib/api.ts`).
+- Nuevo recurso de barberos:
+  - Publico: `GET /api/public/barbers`
+  - Admin: `GET/POST/PUT/DELETE /api/admin/barbers`
+- Reserva publica actualizada:
+  - `GET /api/public/appointments/occupied` requiere `barberId` en query.
+  - `POST /api/public/appointments` requiere `barberId` en payload.
+  - Manejo explicito de `409 Conflict` en frontend para doble reserva concurrente.
+- Concurrencia en DB:
+  - Indice parcial de turnos para evitar double booking activo por `barbershop_id + barber_id + appointment_at` cuando `status <> 'CANCELLED'`.
+- Estabilidad:
+  - Rate limiting global con `@nestjs/throttler` (por defecto `RATE_LIMIT_PER_MINUTE=30`).
+  - Pool PostgreSQL configurable para Neon/Koyeb (`DB_POOL_MAX=15`, `DB_POOL_IDLE_MS=30000`).
+
+## Variables relevantes nuevas
+
+Frontend (`.env` raiz):
+- `VITE_BARBERSHOP_ID`
+
+Backend (`backend/.env`):
+- `DEFAULT_BARBERSHOP_ID`
+- `DB_POOL_MAX`
+- `DB_POOL_IDLE_MS`

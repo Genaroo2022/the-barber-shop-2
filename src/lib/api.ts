@@ -1,4 +1,5 @@
 import { getToken } from "./auth";
+import { BARBERSHOP_ID } from "./tenant";
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 class ApiClient {
@@ -10,6 +11,7 @@ class ApiClient {
     const token = this.getToken();
     const headers: Record<string, string> = {
       ...((options.headers as Record<string, string>) || {}),
+      "x-barbershop-id": BARBERSHOP_ID,
     };
 
     const isFormDataBody = typeof FormData !== "undefined" && options.body instanceof FormData;

@@ -1,19 +1,17 @@
-﻿import { Body, Controller, Get, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Req } from '@nestjs/common';
 import { Request } from 'express';
 import { PublicService } from './public.service';
 import { CreatePublicAppointmentDto } from './create-public-appointment.dto';
-import { SimpleRateLimitService } from '../rate-limit/simple-rate-limit.service';
+import { resolveBarbershopId } from '../common/barbershop-context';
 
 @Controller('/api/public')
 export class PublicController {
-  constructor(
-    private readonly publicService: PublicService,
-    private readonly rateLimit: SimpleRateLimitService,
-  ) {}
+  constructor(private readonly publicService: PublicService) {}
 
   @Get('/services')
-  listServices() {
-    return this.publicService.listServices();
+  listServices(@Req() req: Request) {
+    const barbershopId = resolveBarbershopId(req.headers['x-barbershop-id']);
+    return this.publicService.listServices(barbershopId);
   }
 
   @Get('/gallery')
@@ -21,16 +19,26 @@ export class PublicController {
     return this.publicService.listGallery();
   }
 
+  @Get('/barbers')
+  listBarbers(@Req() req: Request) {
+    const barbershopId = resolveBarbershopId(req.headers['x-barbershop-id']);
+    return this.publicService.listBarbers(barbershopId);
+  }
+
   @Get('/appointments/occupied')
-  listOccupied(@Query('serviceId') serviceId: string, @Query('date') date: string) {
-    return this.publicService.listOccupied(serviceId, date);
+  listOccupied(
+    @Req() req: Request,
+    @Query('serviceId') serviceId: string,
+    @Query('date') date: string,
+    @Query('barberId') barberId: string,
+  ) {
+    const barbershopId = resolveBarbershopId(req.headers['x-barbershop-id']);
+    return this.publicService.listOccupied(serviceId, date, barberId, barbershopId);
   }
 
   @Post('/appointments')
-  createAppointment(@Req() req: Request & { ip?: string }, @Body() dto: CreatePublicAppointmentDto) {
-    this.rateLimit.consume(`booking:${req.ip ?? 'unknown'}`, 20, 60_000);
-    this.rateLimit.consume(`booking_hour:${req.ip ?? 'unknown'}`, 120, 3_600_000);
-    return this.publicService.createAppointment(dto);
+  createAppointment(@Req() req: Request, @Body() dto: CreatePublicAppointmentDto) {
+    const barbershopId = resolveBarbershopId(req.headers['x-barbershop-id']);
+    return this.publicService.createAppointment(dto, barbershopId);
   }
 }
-

@@ -373,3 +373,22 @@ Before handoff:
 - Admin modal titles use improved legibility while preserving visual style.
 - Manual income dialog uses explicit labels for amount vs tip inputs.
 
+
+## Update Delta (April 2026)
+
+### Multi-tenant and booking concurrency
+- Tenant isolation now relies on `x-barbershop-id` resolved in backend and injected globally in frontend API client.
+- Appointments now use `barber_id` + `barbershop_id` in addition to existing relations.
+- The active double-booking guard is a PostgreSQL partial unique index over (`barbershop_id`, `barber_id`, `appointment_at`) where `status <> 'CANCELLED'`.
+- Public booking endpoint flow requires `barberId` for both occupied-slots lookup and creation payload.
+
+### Barber catalog
+- New entity/table: `barbers`.
+- New public endpoint: `GET /api/public/barbers`.
+- New admin CRUD endpoints under `/api/admin/barbers`.
+- Admin panel includes `Admin > Barberos` page; do not mix this with `Admin > Accesos`.
+
+### Runtime and hardening
+- `SimpleRateLimitService` removed; use global `@nestjs/throttler` guard.
+- TypeORM Postgres pool is explicitly configured (`DB_POOL_MAX`, `DB_POOL_IDLE_MS`).
+- Keep environment examples free from secrets. Never commit `.env` files with real credentials.

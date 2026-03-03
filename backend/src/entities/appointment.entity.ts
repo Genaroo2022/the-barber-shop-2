@@ -1,10 +1,20 @@
-﻿import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { AppointmentStatus } from '../common/constants';
 
+@Index('ux_appointments_shop_barber_at_active', ['barbershopId', 'barberId', 'appointmentAt'], {
+  unique: true,
+  where: `"status" <> 'CANCELLED'`,
+})
 @Entity({ name: 'appointments' })
 export class AppointmentEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
+
+  @Column({ name: 'barbershop_id', type: 'uuid' })
+  barbershopId!: string;
+
+  @Column({ name: 'barber_id', type: 'uuid' })
+  barberId!: string;
 
   @Column({ name: 'client_id', type: 'uuid' })
   clientId!: string;
