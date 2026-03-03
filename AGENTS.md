@@ -11,6 +11,12 @@ This repository is a full barbershop management system with:
 
 Primary goal of the current codebase: feature parity with the legacy `style-book-pro-main` project, but using the stack and structure of this repository.
 
+## Operating Context
+
+- This project is maintained by a single owner/operator.
+- Development and operation are performed on a single computer.
+- Even with this single-user context, security controls remain mandatory for every change.
+
 ## Tech Stack (with versions)
 
 Frontend (`/`):
@@ -330,6 +336,11 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml down
 13. Manual income form clarity
 - Keep explicit labels for `Monto del servicio` and `Propina` in the manual income dialog.
 - Avoid placeholder-only meaning for money fields.
+
+14. Security is mandatory for new functionality
+- Any new feature/refactor MUST include security review before handoff.
+- Validate OWASP-style basics at minimum: authentication/authorization checks, input validation, injection prevention, secrets handling, and secure defaults.
+- Do not introduce hardcoded secrets, weak default credentials, or insecure fallback values.
 
 ## Testing / Validation Checklist
 

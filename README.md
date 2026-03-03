@@ -2,6 +2,11 @@
 
 Proyecto de barbería con frontend React (estilos actuales conservados) y backend NestJS.
 
+## Contexto operativo
+
+- Este proyecto es administrado por una sola persona (owner único) y se ejecuta en una sola computadora.
+- Aunque el contexto sea unipersonal, los cambios deben mantener criterios de seguridad (secretos, autenticación, validación y hardening) para evitar exposiciones accidentales.
+
 ## Stack
 
 - Frontend: React + Vite + TypeScript + Tailwind + shadcn/ui
@@ -118,6 +123,13 @@ Claves mínimas recomendadas:
 - `FIREBASE_PROJECT_ID` (para validar el ID token)
 - `FIREBASE_WEB_API_KEY` (Web API Key del proyecto Firebase)
 - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_UPLOAD_FOLDER`
+
+Requisitos de seguridad aplicados:
+
+- `JWT_SECRET` ahora es obligatorio, debe tener al menos 32 caracteres y no puede usar valores débiles/default.
+- `BOOTSTRAP_ADMIN_ENABLED` queda en `false` por defecto.
+- Si se habilita bootstrap admin, `BOOTSTRAP_ADMIN_EMAIL` y `BOOTSTRAP_ADMIN_PASSWORD` son obligatorios.
+- `BOOTSTRAP_ADMIN_PASSWORD` debe tener al menos 12 caracteres.
 
 ## Notas
 

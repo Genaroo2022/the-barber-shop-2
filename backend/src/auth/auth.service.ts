@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AdminUserEntity } from '../entities/admin-user.entity';
 import { FirebaseTokenVerifierService } from './firebase-token-verifier.service';
+import { getRequiredJwtSecret } from './auth-config.service';
 
 @Injectable()
 export class AuthService {
@@ -45,10 +46,11 @@ export class AuthService {
 
   private issueToken(userId: string) {
     const expiresInSeconds = Number(process.env.JWT_EXPIRATION_SECONDS ?? 28_800);
+    const jwtSecret = getRequiredJwtSecret();
     const accessToken = this.jwtService.sign(
       { sub: userId, role: 'ADMIN' },
       {
-        secret: process.env.JWT_SECRET ?? 'dev-secret-change-me',
+        secret: jwtSecret,
         expiresIn: `${expiresInSeconds}s`,
       },
     );

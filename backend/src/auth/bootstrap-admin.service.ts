@@ -15,7 +15,7 @@ export class BootstrapAdminService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    const enabled = String(process.env.BOOTSTRAP_ADMIN_ENABLED ?? 'true').toLowerCase() === 'true';
+    const enabled = String(process.env.BOOTSTRAP_ADMIN_ENABLED ?? 'false').toLowerCase() === 'true';
     if (!enabled) return;
 
     await this.waitForAdminUsersTable();
@@ -23,8 +23,14 @@ export class BootstrapAdminService implements OnModuleInit {
     const total = await this.adminRepo.count();
     if (total > 0) return;
 
-    const email = process.env.BOOTSTRAP_ADMIN_EMAIL ?? 'admin@barberia.com';
-    const password = process.env.BOOTSTRAP_ADMIN_PASSWORD ?? 'Admin12345';
+    const email = (process.env.BOOTSTRAP_ADMIN_EMAIL ?? '').trim().toLowerCase();
+    const password = (process.env.BOOTSTRAP_ADMIN_PASSWORD ?? '').trim();
+    if (!email || !password) {
+      throw new Error('BOOTSTRAP_ADMIN_ENABLED=true requiere BOOTSTRAP_ADMIN_EMAIL y BOOTSTRAP_ADMIN_PASSWORD');
+    }
+    if (password.length < 12) {
+      throw new Error('BOOTSTRAP_ADMIN_PASSWORD debe tener al menos 12 caracteres');
+    }
 
     const hash = await bcrypt.hash(password, 10);
     await this.adminRepo.save(
