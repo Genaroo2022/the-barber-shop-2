@@ -15,7 +15,7 @@ import BarbersPage from "./pages/admin/BarbersPage";
 import GalleryPage from "./pages/admin/GalleryPage";
 import IncomePage from "./pages/admin/IncomePage";
 import AccessPage from "./pages/admin/AccessPage";
-import { ADMIN_ROUTE, LOGIN_ROUTE } from "./lib/routes";
+import { ADMIN_ROUTE, LEGACY_ADMIN_ROUTE, LEGACY_LOGIN_ROUTE, LOGIN_ROUTE } from "./lib/routes";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +27,8 @@ const App = () => (
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/" element={<Index />} />
+          {LOGIN_ROUTE !== LEGACY_LOGIN_ROUTE && <Route path={LEGACY_LOGIN_ROUTE} element={<NotFound />} />}
+          {ADMIN_ROUTE !== LEGACY_ADMIN_ROUTE && <Route path={`${LEGACY_ADMIN_ROUTE}/*`} element={<NotFound />} />}
           <Route path={LOGIN_ROUTE} element={<LoginPage />} />
           <Route path={ADMIN_ROUTE} element={<AdminLayout />}>
             <Route index element={<DashboardPage />} />

@@ -37,8 +37,11 @@ export class PublicService {
     }));
   }
 
-  async listGallery() {
-    const rows = await this.galleryRepo.find({ where: { active: true }, order: { sortOrder: 'ASC', createdAt: 'DESC' } });
+  async listGallery(barbershopId: string) {
+    const rows = await this.galleryRepo.find({
+      where: { active: true, barbershopId },
+      order: { sortOrder: 'ASC', createdAt: 'DESC' },
+    });
     return rows.map((row) => ({
       id: row.id,
       title: row.title,

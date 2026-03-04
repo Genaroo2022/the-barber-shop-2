@@ -6,6 +6,11 @@ export class UpdateAppointmentStatusDto {
   status!: AppointmentStatus;
 }
 
+export class UpdateAppointmentBarberDto {
+  @IsUUID()
+  barberId!: string;
+}
+
 export class AdminClientUpsertDto {
   @IsString()
   @Length(2, 120)

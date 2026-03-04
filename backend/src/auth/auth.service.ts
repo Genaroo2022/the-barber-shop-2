@@ -15,19 +15,20 @@ export class AuthService {
     private readonly firebaseTokenVerifier: FirebaseTokenVerifierService,
   ) {}
 
-  async loginWithFirebaseIdToken(idToken: string) {
+  async loginWithFirebaseIdToken(idToken: string, barbershopId: string) {
     const verified = await this.firebaseTokenVerifier.verifyIdToken(idToken);
     if (!verified.email || !verified.emailVerified) {
       throw new UnauthorizedException('Debes usar una cuenta Google con email verificado');
     }
 
-    let admin = await this.adminRepo.findOne({ where: { firebaseUid: verified.uid, active: true } });
+    let admin = await this.adminRepo.findOne({ where: { firebaseUid: verified.uid, active: true, barbershopId } });
 
     // Strict allowlist via admin_users: only active admins are allowed to auto-link once by email.
     if (!admin) {
       admin = await this.adminRepo
         .createQueryBuilder('a')
         .where('lower(a.email) = lower(:email)', { email: verified.email })
+        .andWhere('a.barbershop_id = :barbershopId', { barbershopId })
         .andWhere('a.active = true')
         .getOne();
 
@@ -41,14 +42,26 @@ export class AuthService {
       throw new UnauthorizedException('Usuario admin no autorizado para login con Firebase');
     }
 
-    return this.issueToken(admin.id);
+    return this.issueToken(admin.id, barbershopId);
   }
 
-  private issueToken(userId: string) {
+  private issueToken(userId: string, barbershopId: string) {
+    return this.issueTokenWithBarbershop(userId, barbershopId);
+  }
+
+  private async issueTokenWithBarbershop(userId: string, barbershopId: string) {
+    const admin = await this.adminRepo.findOne({
+      where: { id: userId, active: true, barbershopId },
+      select: { id: true, barbershopId: true },
+    });
+    if (!admin) {
+      throw new UnauthorizedException('Usuario admin no autorizado');
+    }
+
     const expiresInSeconds = Number(process.env.JWT_EXPIRATION_SECONDS ?? 28_800);
     const jwtSecret = getRequiredJwtSecret();
     const accessToken = this.jwtService.sign(
-      { sub: userId, role: 'ADMIN' },
+      { sub: admin.id, role: 'ADMIN', barbershopId: admin.barbershopId },
       {
         secret: jwtSecret,
         expiresIn: `${expiresInSeconds}s`,

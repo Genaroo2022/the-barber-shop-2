@@ -6,3 +6,5 @@ const normalizeRoute = (value: string | undefined, fallback: string): string => 
 
 export const LOGIN_ROUTE = normalizeRoute(import.meta.env.VITE_LOGIN_PATH, "/admin/login");
 export const ADMIN_ROUTE = normalizeRoute(import.meta.env.VITE_ADMIN_PATH, "/admin");
+export const LEGACY_LOGIN_ROUTE = "/admin/login";
+export const LEGACY_ADMIN_ROUTE = "/admin";

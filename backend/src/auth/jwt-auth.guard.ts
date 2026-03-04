@@ -23,7 +23,7 @@ export class JwtAuthGuard implements CanActivate {
     const token = auth.slice(7);
     try {
       const jwtSecret = getRequiredJwtSecret();
-      const payload = this.jwtService.verify<{ sub?: string }>(token, {
+      const payload = this.jwtService.verify<{ sub?: string; role?: string; barbershopId?: string }>(token, {
         secret: jwtSecret,
       });
       const adminId = payload?.sub;
@@ -33,13 +33,17 @@ export class JwtAuthGuard implements CanActivate {
 
       const admin = await this.adminRepo.findOne({
         where: { id: adminId, active: true },
-        select: { id: true },
+        select: { id: true, role: true, barbershopId: true },
       });
       if (!admin) {
         throw new UnauthorizedException('Sesion expirada o usuario inactivo');
       }
 
-      request.user = payload;
+      request.user = {
+        sub: admin.id,
+        role: admin.role,
+        barbershopId: admin.barbershopId,
+      };
       return true;
     } catch (error) {
       if (error instanceof UnauthorizedException) {

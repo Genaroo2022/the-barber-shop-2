@@ -15,8 +15,9 @@ export class PublicController {
   }
 
   @Get('/gallery')
-  listGallery() {
-    return this.publicService.listGallery();
+  listGallery(@Req() req: Request) {
+    const barbershopId = resolveBarbershopId(req.headers['x-barbershop-id']);
+    return this.publicService.listGallery(barbershopId);
   }
 
   @Get('/barbers')

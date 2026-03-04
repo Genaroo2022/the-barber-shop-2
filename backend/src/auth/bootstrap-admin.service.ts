@@ -20,7 +20,8 @@ export class BootstrapAdminService implements OnModuleInit {
 
     await this.waitForAdminUsersTable();
 
-    const total = await this.adminRepo.count();
+    const defaultBarbershopId = (process.env.DEFAULT_BARBERSHOP_ID ?? '00000000-0000-0000-0000-000000000001').trim();
+    const total = await this.adminRepo.count({ where: { barbershopId: defaultBarbershopId } });
     if (total > 0) return;
 
     const email = (process.env.BOOTSTRAP_ADMIN_EMAIL ?? '').trim().toLowerCase();
@@ -35,6 +36,7 @@ export class BootstrapAdminService implements OnModuleInit {
     const hash = await bcrypt.hash(password, 10);
     await this.adminRepo.save(
       this.adminRepo.create({
+        barbershopId: defaultBarbershopId,
         email,
         passwordHash: hash,
         role: 'ADMIN',

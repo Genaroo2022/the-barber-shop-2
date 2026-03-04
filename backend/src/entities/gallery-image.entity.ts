@@ -5,6 +5,9 @@ export class GalleryImageEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
+  @Column({ name: 'barbershop_id', type: 'uuid' })
+  barbershopId!: string;
+
   @Column({ type: 'varchar', length: 120 })
   title!: string;
 

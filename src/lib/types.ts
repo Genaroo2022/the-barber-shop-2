@@ -60,9 +60,15 @@ export interface AppointmentResponse {
   serviceId: string;
   serviceName: string;
   servicePrice: number;
+  barberId: string;
+  barberName: string;
   appointmentAt: string;
   status: AppointmentStatus;
   notes: string | null;
+}
+
+export interface UpdateAppointmentBarberRequest {
+  barberId: string;
 }
 
 export interface StalePendingAppointmentResponse {
@@ -125,6 +131,11 @@ export interface OverviewMetricsResponse {
   completedAppointments: number;
   uniqueClients: number;
   popularService: string;
+  completedByBarber: {
+    barberId: string;
+    barberName: string;
+    completedCount: number;
+  }[];
 }
 
 export interface IncomeBreakdownItem {

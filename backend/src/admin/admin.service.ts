@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Repository } from 'typeorm';
+import { Brackets, QueryFailedError, Repository } from 'typeorm';
 import { createHash, randomBytes } from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import { AppointmentEntity } from '../entities/appointment.entity';
@@ -42,11 +42,16 @@ export class AdminService {
     private readonly phoneService: PhoneService,
   ) {}
 
-  async listAppointments(month?: string, limit = 500, page = 0) {
+  async listAppointments(month: string | undefined, barberId: string | undefined, limit = 500, page = 0, barbershopId: string) {
+    if (barberId) {
+      await this.ensureBarberBelongsToTenant(barberId, barbershopId);
+    }
+
     const qb = this.appointmentsRepo
       .createQueryBuilder('a')
       .innerJoin(ClientEntity, 'c', 'c.id = a.client_id')
       .innerJoin(ServiceEntity, 's', 's.id = a.service_id')
+      .innerJoin(BarberEntity, 'b', 'b.id = a.barber_id')
       .select([
         'a.id AS id',
         'a.client_id AS "clientId"',
@@ -55,13 +60,20 @@ export class AdminService {
         'a.service_id AS "serviceId"',
         's.name AS "serviceName"',
         's.price AS "servicePrice"',
+        'a.barber_id AS "barberId"',
+        'b.name AS "barberName"',
         'a.appointment_at AS "appointmentAt"',
         'a.status AS status',
         'a.notes AS notes',
       ])
+      .where('a.barbershop_id = :barbershopId', { barbershopId })
       .orderBy('a.appointment_at', 'DESC')
       .limit(Math.min(limit, 1000))
       .offset(Math.max(0, page) * Math.min(limit, 1000));
+
+    if (barberId) {
+      qb.andWhere('a.barber_id = :barberId', { barberId });
+    }
 
     if (month) {
       const [year, mon] = month.split('-').map(Number);
@@ -79,24 +91,37 @@ export class AdminService {
     }));
   }
 
-  async listStalePending(olderThanMinutes = 120) {
+  async listStalePending(olderThanMinutes = 120, barberId: string | undefined, barbershopId: string) {
+    if (barberId) {
+      await this.ensureBarberBelongsToTenant(barberId, barbershopId);
+    }
+
     const threshold = new Date(Date.now() - olderThanMinutes * 60_000);
-    const rows = await this.appointmentsRepo
+    const qb = this.appointmentsRepo
       .createQueryBuilder('a')
       .innerJoin(ClientEntity, 'c', 'c.id = a.client_id')
       .innerJoin(ServiceEntity, 's', 's.id = a.service_id')
+      .innerJoin(BarberEntity, 'b', 'b.id = a.barber_id')
       .select([
         'a.id AS id',
         'c.name AS "clientName"',
         'c.phone AS "clientPhone"',
         's.name AS "serviceName"',
+        'a.barber_id AS "barberId"',
+        'b.name AS "barberName"',
         'a.appointment_at AS "appointmentAt"',
         'a.created_at AS "createdAt"',
       ])
-      .where('a.status = :status', { status: 'PENDING' })
+      .where('a.barbershop_id = :barbershopId', { barbershopId })
+      .andWhere('a.status = :status', { status: 'PENDING' })
       .andWhere('a.created_at < :threshold', { threshold })
-      .orderBy('a.created_at', 'ASC')
-      .getRawMany();
+      .orderBy('a.created_at', 'ASC');
+
+    if (barberId) {
+      qb.andWhere('a.barber_id = :barberId', { barberId });
+    }
+
+    const rows = await qb.getRawMany();
 
     return rows.map((row) => ({
       ...row,
@@ -106,20 +131,45 @@ export class AdminService {
     }));
   }
 
-  async updateAppointmentStatus(id: string, status: AppointmentStatus) {
-    const appointment = await this.appointmentsRepo.findOne({ where: { id } });
+  async updateAppointmentStatus(id: string, status: AppointmentStatus, barbershopId: string) {
+    const appointment = await this.appointmentsRepo.findOne({ where: { id, barbershopId } });
     if (!appointment) throw new NotFoundException('Turno no encontrado');
     appointment.status = status;
     const saved = await this.appointmentsRepo.save(appointment);
     return this.mapAppointment(saved);
   }
 
-  async deleteAppointment(id: string) {
-    await this.appointmentsRepo.delete({ id });
+  async deleteAppointment(id: string, barbershopId: string) {
+    const result = await this.appointmentsRepo.delete({ id, barbershopId });
+    if ((result.affected ?? 0) === 0) {
+      throw new NotFoundException('Turno no encontrado');
+    }
   }
 
-  async listClients(limit = 500, page = 0) {
+  async updateAppointmentBarber(id: string, barberId: string, barbershopId: string) {
+    const appointment = await this.appointmentsRepo.findOne({ where: { id, barbershopId } });
+    if (!appointment) throw new NotFoundException('Turno no encontrado');
+
+    const barber = await this.barbersRepo.findOne({ where: { id: barberId, barbershopId, active: true } });
+    if (!barber) throw new BadRequestException('Barbero no disponible');
+
+    appointment.barberId = barberId;
+
+    try {
+      const saved = await this.appointmentsRepo.save(appointment);
+      return this.mapAppointment(saved);
+    } catch (error) {
+      const pgCode = (error as { driverError?: { code?: string } })?.driverError?.code;
+      if (error instanceof QueryFailedError && pgCode === '23505') {
+        throw new ConflictException('El barbero ya tiene otro turno en ese mismo horario');
+      }
+      throw error;
+    }
+  }
+
+  async listClients(limit = 500, page = 0, barbershopId: string) {
     const clients = await this.clientsRepo.find({
+      where: { barbershopId },
       order: { createdAt: 'DESC' },
       take: Math.min(limit, 1000),
       skip: Math.max(page, 0) * Math.min(limit, 1000),
@@ -134,6 +184,7 @@ export class AdminService {
         .addSelect(`COUNT(*) FILTER (WHERE a.status = 'COMPLETED')`, 'totalCompleted')
         .addSelect('MAX(a.appointment_at)', 'lastVisit')
         .where('a.client_id IN (:...ids)', { ids })
+        .andWhere('a.barbershop_id = :barbershopId', { barbershopId })
         .groupBy('a.client_id')
         .getRawMany();
 
@@ -157,8 +208,8 @@ export class AdminService {
     });
   }
 
-  async updateClient(id: string, dto: AdminClientUpsertDto) {
-    const client = await this.clientsRepo.findOne({ where: { id } });
+  async updateClient(id: string, dto: AdminClientUpsertDto, barbershopId: string) {
+    const client = await this.clientsRepo.findOne({ where: { id, barbershopId } });
     if (!client) throw new NotFoundException('Cliente no encontrado');
     const normalizedPhone = this.phoneService.normalize(dto.phone);
     if (!normalizedPhone) throw new BadRequestException('Telefono invalido');
@@ -177,15 +228,15 @@ export class AdminService {
     };
   }
 
-  async mergeClients(sourceClientId: string, targetClientId: string) {
+  async mergeClients(sourceClientId: string, targetClientId: string, barbershopId: string) {
     if (sourceClientId === targetClientId) throw new BadRequestException('Origen y destino no pueden coincidir');
 
-    const source = await this.clientsRepo.findOne({ where: { id: sourceClientId } });
-    const target = await this.clientsRepo.findOne({ where: { id: targetClientId } });
+    const source = await this.clientsRepo.findOne({ where: { id: sourceClientId, barbershopId } });
+    const target = await this.clientsRepo.findOne({ where: { id: targetClientId, barbershopId } });
     if (!source || !target) throw new NotFoundException('Cliente no encontrado');
 
-    await this.appointmentsRepo.update({ clientId: source.id }, { clientId: target.id });
-    await this.clientsRepo.delete({ id: source.id });
+    await this.appointmentsRepo.update({ clientId: source.id, barbershopId }, { clientId: target.id });
+    await this.clientsRepo.delete({ id: source.id, barbershopId });
 
     return {
       id: target.id,
@@ -196,42 +247,57 @@ export class AdminService {
     };
   }
 
-  async deleteClient(id: string) {
-    const client = await this.clientsRepo.findOne({ where: { id } });
+  async deleteClient(id: string, barbershopId: string) {
+    const client = await this.clientsRepo.findOne({ where: { id, barbershopId } });
     if (!client) {
       throw new NotFoundException('Cliente no encontrado');
     }
 
-    const appointmentsCount = await this.appointmentsRepo.count({ where: { clientId: id } });
+    const appointmentsCount = await this.appointmentsRepo.count({ where: { clientId: id, barbershopId } });
     if (appointmentsCount > 0) {
       throw new BadRequestException(
         'No se puede eliminar el cliente porque tiene turnos asociados. Fusiona el cliente o elimina sus turnos primero.',
       );
     }
 
-    await this.clientsRepo.delete({ id });
+    await this.clientsRepo.delete({ id, barbershopId });
   }
 
-  async getOverviewMetrics() {
+  async getOverviewMetrics(barbershopId: string) {
     const totals = await this.appointmentsRepo
       .createQueryBuilder('a')
       .select('COUNT(*)', 'totalAppointments')
       .addSelect(`COUNT(*) FILTER (WHERE a.status = 'PENDING')`, 'pendingAppointments')
       .addSelect(`COUNT(*) FILTER (WHERE a.status = 'COMPLETED')`, 'completedAppointments')
+      .where('a.barbershop_id = :barbershopId', { barbershopId })
       .getRawOne();
 
-    const uniqueClients = await this.clientsRepo.count();
+    const uniqueClients = await this.clientsRepo.count({ where: { barbershopId } });
 
     const popular = await this.appointmentsRepo
       .createQueryBuilder('a')
       .innerJoin(ServiceEntity, 's', 's.id = a.service_id')
       .select('s.name', 'serviceName')
       .addSelect('COUNT(*)', 'total')
-      .where('a.status IN (:...statuses)', { statuses: ['PENDING', 'CONFIRMED', 'COMPLETED'] })
+      .where('a.barbershop_id = :barbershopId', { barbershopId })
+      .andWhere('a.status IN (:...statuses)', { statuses: ['PENDING', 'CONFIRMED', 'COMPLETED'] })
       .groupBy('s.name')
       .orderBy('COUNT(*)', 'DESC')
       .limit(1)
       .getRawOne();
+
+    const completedByBarber = await this.appointmentsRepo
+      .createQueryBuilder('a')
+      .innerJoin(BarberEntity, 'b', 'b.id = a.barber_id')
+      .select('a.barber_id', 'barberId')
+      .addSelect('b.name', 'barberName')
+      .addSelect(`COUNT(*) FILTER (WHERE a.status = 'COMPLETED')`, 'completedCount')
+      .where('a.barbershop_id = :barbershopId', { barbershopId })
+      .groupBy('a.barber_id')
+      .addGroupBy('b.name')
+      .orderBy(`COUNT(*) FILTER (WHERE a.status = 'COMPLETED')`, 'DESC')
+      .addOrderBy('b.name', 'ASC')
+      .getRawMany();
 
     return {
       totalAppointments: Number(totals?.totalAppointments ?? 0),
@@ -239,10 +305,15 @@ export class AdminService {
       completedAppointments: Number(totals?.completedAppointments ?? 0),
       uniqueClients,
       popularService: popular?.serviceName ?? '-',
+      completedByBarber: completedByBarber.map((row) => ({
+        barberId: row.barberId,
+        barberName: row.barberName,
+        completedCount: Number(row.completedCount ?? 0),
+      })),
     };
   }
 
-  async getIncomeMetrics(month?: string) {
+  async getIncomeMetrics(month: string | undefined, barbershopId: string) {
     const range = this.resolveMonthRange(month);
 
     const completedRows = await this.appointmentsRepo
@@ -251,7 +322,8 @@ export class AdminService {
       .select('s.name', 'serviceName')
       .addSelect('s.price', 'servicePrice')
       .addSelect('COUNT(*)', 'count')
-      .where('a.status = :status', { status: 'COMPLETED' })
+      .where('a.barbershop_id = :barbershopId', { barbershopId })
+      .andWhere('a.status = :status', { status: 'COMPLETED' })
       .andWhere('a.appointment_at BETWEEN :start AND :end', range)
       .groupBy('s.name')
       .addGroupBy('s.price')
@@ -268,7 +340,8 @@ export class AdminService {
 
     const manualEntries = await this.manualIncomeRepo
       .createQueryBuilder('m')
-      .where('m.occurred_on BETWEEN :start::date AND :end::date', {
+      .where('m.barbershop_id = :barbershopId', { barbershopId })
+      .andWhere('m.occurred_on BETWEEN :start::date AND :end::date', {
         start: range.start.toISOString().slice(0, 10),
         end: range.end.toISOString().slice(0, 10),
       })
@@ -300,8 +373,9 @@ export class AdminService {
     };
   }
 
-  async createManualIncome(dto: CreateManualIncomeDto) {
+  async createManualIncome(dto: CreateManualIncomeDto, barbershopId: string) {
     const entity = this.manualIncomeRepo.create({
+      barbershopId,
       amount: dto.amount.toString(),
       tipAmount: dto.tipAmount.toString(),
       occurredOn: dto.occurredOn.slice(0, 10),
@@ -311,8 +385,8 @@ export class AdminService {
     return this.mapManual(saved);
   }
 
-  async updateManualIncome(id: string, dto: CreateManualIncomeDto) {
-    const entity = await this.manualIncomeRepo.findOne({ where: { id } });
+  async updateManualIncome(id: string, dto: CreateManualIncomeDto, barbershopId: string) {
+    const entity = await this.manualIncomeRepo.findOne({ where: { id, barbershopId } });
     if (!entity) throw new NotFoundException('Ingreso manual no encontrado');
     entity.amount = dto.amount.toString();
     entity.tipAmount = dto.tipAmount.toString();
@@ -322,8 +396,11 @@ export class AdminService {
     return this.mapManual(saved);
   }
 
-  async deleteManualIncome(id: string) {
-    await this.manualIncomeRepo.delete({ id });
+  async deleteManualIncome(id: string, barbershopId: string) {
+    const result = await this.manualIncomeRepo.delete({ id, barbershopId });
+    if ((result.affected ?? 0) === 0) {
+      throw new NotFoundException('Ingreso manual no encontrado');
+    }
   }
 
   async listServices(barbershopId: string) {
@@ -378,7 +455,7 @@ export class AdminService {
       );
     }
 
-    await this.servicesRepo.delete({ id });
+    await this.servicesRepo.delete({ id, barbershopId });
   }
 
   async listBarbers(barbershopId: string) {
@@ -440,11 +517,12 @@ export class AdminService {
       );
     }
 
-    await this.barbersRepo.delete({ id });
+    await this.barbersRepo.delete({ id, barbershopId });
   }
 
-  async listGallery(limit = 500, page = 0) {
+  async listGallery(limit = 500, page = 0, barbershopId: string) {
     const rows = await this.galleryRepo.find({
+      where: { barbershopId },
       order: { sortOrder: 'ASC', createdAt: 'DESC' },
       take: Math.min(limit, 1000),
       skip: Math.max(page, 0) * Math.min(limit, 1000),
@@ -460,10 +538,10 @@ export class AdminService {
     }));
   }
 
-  getGalleryUploadSignature() {
+  getGalleryUploadSignature(barbershopId: string) {
     const { cloudName, apiKey, apiSecret, folder } = this.resolveCloudinaryConfig();
     const timestamp = Math.floor(Date.now() / 1000);
-    const publicId = this.buildCloudinaryPublicId(timestamp);
+    const publicId = this.buildCloudinaryPublicId(timestamp, barbershopId);
 
     const signature = this.signCloudinaryParams(
       {
@@ -484,7 +562,10 @@ export class AdminService {
     };
   }
 
-  async uploadGalleryImage(file?: { buffer: Buffer; mimetype: string; size: number; originalname: string }) {
+  async uploadGalleryImage(
+    file: { buffer: Buffer; mimetype: string; size: number; originalname: string } | undefined,
+    barbershopId: string,
+  ) {
     if (!file) {
       throw new BadRequestException('Archivo requerido');
     }
@@ -496,7 +577,7 @@ export class AdminService {
     }
 
     const { cloudName, apiKey, folder } = this.resolveCloudinaryConfig();
-    const { timestamp, publicId, signature } = this.getGalleryUploadSignature();
+    const { timestamp, publicId, signature } = this.getGalleryUploadSignature(barbershopId);
 
     const formData = new FormData();
     const bytes = Uint8Array.from(file.buffer);
@@ -527,8 +608,9 @@ export class AdminService {
     };
   }
 
-  async createGalleryImage(dto: AdminGalleryImageUpsertDto) {
+  async createGalleryImage(dto: AdminGalleryImageUpsertDto, barbershopId: string) {
     const entity = this.galleryRepo.create({
+      barbershopId,
       title: dto.title,
       category: dto.category ?? null,
       imageUrl: dto.imageUrl,
@@ -539,8 +621,8 @@ export class AdminService {
     return this.mapGallery(saved);
   }
 
-  async updateGalleryImage(id: string, dto: AdminGalleryImageUpsertDto) {
-    const entity = await this.galleryRepo.findOne({ where: { id } });
+  async updateGalleryImage(id: string, dto: AdminGalleryImageUpsertDto, barbershopId: string) {
+    const entity = await this.galleryRepo.findOne({ where: { id, barbershopId } });
     if (!entity) throw new NotFoundException('Imagen no encontrada');
 
     entity.title = dto.title;
@@ -553,20 +635,24 @@ export class AdminService {
     return this.mapGallery(saved);
   }
 
-  async deleteGalleryImage(id: string) {
-    await this.galleryRepo.delete({ id });
+  async deleteGalleryImage(id: string, barbershopId: string) {
+    const result = await this.galleryRepo.delete({ id, barbershopId });
+    if ((result.affected ?? 0) === 0) {
+      throw new NotFoundException('Imagen no encontrada');
+    }
   }
 
-  async listAdminUsers() {
-    const admins = await this.adminUsersRepo.find({ order: { createdAt: 'ASC' } });
+  async listAdminUsers(barbershopId: string) {
+    const admins = await this.adminUsersRepo.find({ where: { barbershopId }, order: { createdAt: 'ASC' } });
     return admins.map((admin) => this.mapAdminUser(admin));
   }
 
-  async createAdminUser(dto: AdminUserCreateDto) {
+  async createAdminUser(dto: AdminUserCreateDto, barbershopId: string) {
     const email = dto.email.trim().toLowerCase();
     const existing = await this.adminUsersRepo
       .createQueryBuilder('a')
-      .where('lower(a.email) = :email', { email })
+      .where('a.barbershop_id = :barbershopId', { barbershopId })
+      .andWhere('lower(a.email) = :email', { email })
       .getOne();
 
     if (existing) {
@@ -577,6 +663,7 @@ export class AdminService {
     const passwordHash = await bcrypt.hash(passwordToHash, 10);
 
     const created = this.adminUsersRepo.create({
+      barbershopId,
       email,
       passwordHash,
       active: dto.active,
@@ -588,15 +675,16 @@ export class AdminService {
     return this.mapAdminUser(saved);
   }
 
-  async updateAdminUser(id: string, dto: AdminUserUpdateDto, currentAdminId: string | null) {
-    const admin = await this.adminUsersRepo.findOne({ where: { id } });
+  async updateAdminUser(id: string, dto: AdminUserUpdateDto, currentAdminId: string | null, barbershopId: string) {
+    const admin = await this.adminUsersRepo.findOne({ where: { id, barbershopId } });
     if (!admin) throw new NotFoundException('Administrador no encontrado');
 
     if (dto.email) {
       const email = dto.email.trim().toLowerCase();
       const existing = await this.adminUsersRepo
         .createQueryBuilder('a')
-        .where('lower(a.email) = :email', { email })
+        .where('a.barbershop_id = :barbershopId', { barbershopId })
+        .andWhere('lower(a.email) = :email', { email })
         .andWhere('a.id <> :id', { id })
         .getOne();
 
@@ -621,15 +709,15 @@ export class AdminService {
     return this.mapAdminUser(saved);
   }
 
-  async deleteAdminUser(id: string, currentAdminId: string | null) {
-    const admin = await this.adminUsersRepo.findOne({ where: { id } });
+  async deleteAdminUser(id: string, currentAdminId: string | null, barbershopId: string) {
+    const admin = await this.adminUsersRepo.findOne({ where: { id, barbershopId } });
     if (!admin) throw new NotFoundException('Administrador no encontrado');
 
     if (currentAdminId && currentAdminId === admin.id) {
       throw new BadRequestException('No puedes eliminar tu propio usuario');
     }
 
-    await this.adminUsersRepo.delete({ id });
+    await this.adminUsersRepo.delete({ id, barbershopId });
   }
 
   private mapAppointment(appointment: AppointmentEntity) {
@@ -637,6 +725,7 @@ export class AdminService {
       id: appointment.id,
       clientId: appointment.clientId,
       serviceId: appointment.serviceId,
+      barberId: appointment.barberId,
       appointmentAt: appointment.appointmentAt.toISOString(),
       status: appointment.status,
       notes: appointment.notes,
@@ -732,8 +821,19 @@ export class AdminService {
     return { cloudName, apiKey, apiSecret, folder };
   }
 
-  private buildCloudinaryPublicId(timestamp: number): string {
-    return `gallery_${timestamp}_${Math.floor(Math.random() * 1_000_000)}`;
+  private buildCloudinaryPublicId(timestamp: number, barbershopId: string): string {
+    const sanitizedShop = barbershopId.replace(/[^a-zA-Z0-9_-]/g, '_');
+    return `gallery_${sanitizedShop}_${timestamp}_${Math.floor(Math.random() * 1_000_000)}`;
+  }
+
+  private async ensureBarberBelongsToTenant(barberId: string, barbershopId: string): Promise<void> {
+    const barber = await this.barbersRepo.findOne({
+      where: { id: barberId, barbershopId },
+      select: { id: true },
+    });
+    if (!barber) {
+      throw new BadRequestException('Barbero no disponible');
+    }
   }
 }
 

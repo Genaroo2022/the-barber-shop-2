@@ -5,6 +5,9 @@ export class ManualIncomeEntryEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
+  @Column({ name: 'barbershop_id', type: 'uuid' })
+  barbershopId!: string;
+
   @Column({ type: 'numeric', precision: 12, scale: 2 })
   amount!: string;
 

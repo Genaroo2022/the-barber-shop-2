@@ -1,7 +1,7 @@
 ﻿import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { OverviewMetricsResponse, IncomeMetricsResponse } from "@/lib/types";
-import { CalendarDays, Users, CheckCircle, Clock, Star, DollarSign } from "lucide-react";
+import { CalendarDays, Users, CheckCircle, Clock, Star, DollarSign, UserRound } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
@@ -55,6 +55,28 @@ export default function DashboardPage() {
             </p>
           </div>
         ))}
+      </div>
+
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <UserRound size={18} className="text-primary" />
+          <h3 className="text-xl" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+            Turnos completados por barbero
+          </h3>
+        </div>
+
+        {overview?.completedByBarber && overview.completedByBarber.length > 0 ? (
+          <div className="space-y-2">
+            {overview.completedByBarber.map((item) => (
+              <div key={item.barberId} className="flex items-center justify-between rounded-lg bg-secondary px-3 py-2">
+                <span className="text-foreground">{item.barberName}</span>
+                <span className="text-primary font-semibold">{item.completedCount}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Sin turnos completados en esta sucursal.</p>
+        )}
       </div>
 
       <div className="bg-card border border-border rounded-xl p-6">
